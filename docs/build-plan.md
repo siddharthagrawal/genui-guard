@@ -166,6 +166,20 @@ Two suites only, for the reasons in the decision log. **Detection** runs held-ou
 - [ ] A test pull request shows the eval comment
 - [ ] Three outside testers reach a first guarded component in under five minutes, with findings and fixes recorded
 
+## How do the packages get published?
+
+Not yet, deliberately. The README holds publication until the eval suites exist, so the false block rate is a measured number rather than a promise, which is the bar the project sets for itself elsewhere.
+
+The manifests are ready, so when that changes it is `pnpm release` from the root. Two details are worth not rediscovering.
+
+Use `pnpm publish`, never `npm publish`. The adapter depends on `"@genui-guard/core": "workspace:*"`, and pnpm rewrites that to the real version on publish while npm would ship the literal string and break every install.
+
+Both manifests carry `publishConfig.access: "public"`. Scoped packages default to restricted, and publishing one without that field fails unless the account is paid, which is the most common first-publish failure.
+
+`prepublishOnly` runs the build and the tests, so an untested or unbuilt package cannot be published by accident. Both were verified with a dry run: 47 files for core and 31 for the adapter, with the README and LICENSE included and no sources or tests leaking into the tarball.
+
+The `@genui-guard` scope is reserved by creating a free npm organisation of that name, which requires no publish and no CLI login.
+
 ## Open questions
 
 Carried deliberately rather than guessed at.

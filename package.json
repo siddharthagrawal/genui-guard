@@ -10,7 +10,8 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck && tsc -p examples/tsconfig.json",
     "lint": "pnpm -r lint",
-    "bench": "pnpm --filter @genui-guard/core bench"
+    "bench": "pnpm --filter @genui-guard/core bench",
+    "release": "pnpm --filter \"@genui-guard/*\" publish --access public"
   },
   "devDependencies": {
     "typescript": "^5.6.3",

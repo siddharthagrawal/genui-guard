@@ -1,7 +1,7 @@
 {
   "name": "@genui-guard/json-render",
-  "version": "0.0.0",
-  "description": "json-render adapter for genui-guard. Translates a json-render spec stream into guard events and back.",
+  "version": "0.1.0",
+  "description": "json-render adapter for genui-guard. Translates specs and JSONL patches to guard events and back.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,11 +12,16 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build && pnpm run test"
   },
   "dependencies": {
     "@genui-guard/core": "workspace:*"
@@ -29,5 +34,31 @@
     "@json-render/core": "0.21.0",
     "zod": "^4.3.6"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "keywords": [
+    "generative-ui",
+    "guardrails",
+    "llm",
+    "ai-safety",
+    "provenance",
+    "json-render",
+    "trust",
+    "agent"
+  ],
+  "homepage": "https://github.com/siddharthagrawal/genui-guard/tree/main/packages/json-render#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siddharthagrawal/genui-guard.git",
+    "directory": "packages/json-render"
+  },
+  "bugs": {
+    "url": "https://github.com/siddharthagrawal/genui-guard/issues"
+  },
+  "author": "Siddharth Agrawal (https://github.com/siddharthagrawal)",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

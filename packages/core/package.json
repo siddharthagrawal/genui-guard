@@ -1,7 +1,7 @@
 {
   "name": "@genui-guard/core",
-  "version": "0.0.0",
-  "description": "Trust layer for generative UI. Verifies that model-composed interfaces are true, permitted and safe.",
+  "version": "0.1.0",
+  "description": "Verify that model-composed generative UI is true, permitted and safe before it reaches the browser.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,13 +12,18 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "bench": "vitest bench --run"
+    "bench": "vitest bench --run",
+    "prepublishOnly": "pnpm run build && pnpm run test"
   },
   "peerDependencies": {
     "zod": "^4.0.0"
@@ -26,5 +31,31 @@
   "devDependencies": {
     "zod": "^4.3.6"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "keywords": [
+    "generative-ui",
+    "guardrails",
+    "llm",
+    "ai-safety",
+    "provenance",
+    "json-render",
+    "trust",
+    "agent"
+  ],
+  "homepage": "https://github.com/siddharthagrawal/genui-guard/tree/main/packages/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siddharthagrawal/genui-guard.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/siddharthagrawal/genui-guard/issues"
+  },
+  "author": "Siddharth Agrawal (https://github.com/siddharthagrawal)",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
