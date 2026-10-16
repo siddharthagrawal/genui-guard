@@ -144,8 +144,11 @@ genui-guard works with the catalog you already have, with `@json-render/core` su
 
 Install it alongside your existing setup.
 
+Not on npm yet. The packages are complete and tested, and I am holding publication until the eval suites exist, so that the false block rate is a measured number rather than a promise. Until then, clone the repo and reference the workspace packages directly.
+
 ```bash
-pnpm add genui-guard zod
+# once published
+pnpm add @genui-guard/core zod
 ```
 
 You reuse your json-render catalog and tell genui-guard only the extra things it needs to know, which are the properties that are bound and the policies to enforce.
@@ -223,6 +226,12 @@ Each stage is a git tag, so you can check one out to see the project at that poi
 [docs/prd.md](docs/prd.md) covers the problem, the users, what success looks like, and what could make this fail. [docs/decisions.md](docs/decisions.md) holds the developer-experience bar every interface is held to and then the decision log behind it, including why I enforce bindings rather than compare values, why blocking comes before repair, and why there is no dev console. [docs/concepts.md](docs/concepts.md) explains the specification tree, holding until verified, and the limits of provenance. [docs/competitive-scan.md](docs/competitive-scan.md) is the survey of the surrounding ecosystem, including the adoption numbers behind the decision to build on json-render. [docs/build-plan.md](docs/build-plan.md) is the working spec for the three phases, with the acceptance criteria each one has to pass, and [ROADMAP.md](ROADMAP.md) covers what comes after the first version.
 
 The first version deliberately leaves out, and the decision log explains, a component catalog, renderer, or streaming parser of its own, a trace console, substituting replacement content for blocked items, probabilistic phishing detection, a hosted service, a model used as a judge, and policy editing through a user interface.
+
+---
+
+## How do I get in touch?
+
+Open an [issue](https://github.com/siddharthagrawal/genui-guard/issues) for anything about the code, the design, or a claim you think is wrong. The last of those is the most welcome. For anything else, my links are on my [GitHub profile](https://github.com/siddharthagrawal).
 
 ---
 
