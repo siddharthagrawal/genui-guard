@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    // Resolve against source rather than dist, so the example cannot drift
+    // from the real API without the typecheck noticing.
+    "paths": {
+      "@genui-guard/core": ["../packages/core/src/index.ts"]
+    }
+  },
+  "include": ["**/*.ts"]
+}

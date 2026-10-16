@@ -1,0 +1,33 @@
+{
+  "name": "@genui-guard/json-render",
+  "version": "0.0.0",
+  "description": "json-render adapter for genui-guard. Translates a json-render spec stream into guard events and back.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@genui-guard/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@json-render/core": "0.21.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@json-render/core": "0.21.0",
+    "zod": "^4.3.6"
+  },
+  "sideEffects": false
+}

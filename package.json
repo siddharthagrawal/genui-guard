@@ -1,0 +1,20 @@
+{
+  "name": "genui-guard-monorepo",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck && tsc -p examples/tsconfig.json",
+    "lint": "pnpm -r lint",
+    "bench": "pnpm --filter @genui-guard/core bench"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4",
+    "@vitest/coverage-v8": "^2.1.4"
+  }
+}
