@@ -144,11 +144,12 @@ genui-guard works with the catalog you already have, with `@json-render/core` su
 
 Install it alongside your existing setup.
 
-Not on npm yet. The packages are complete and tested, and I am holding publication until the eval suites exist, so that the false block rate is a measured number rather than a promise. Until then, clone the repo and reference the workspace packages directly.
+Publication was gated on the eval suites, so that the false block rate above is a measured number rather than a promise. That gate has passed and the release is the step in progress; until the packages appear on npm, clone the repository and reference the workspace packages directly.
 
 ```bash
-# once published
-pnpm add @genui-guard/core zod
+pnpm add @genui-guard/core zod                 # the guard
+pnpm add @genui-guard/json-render              # the adapter, if you use json-render
+pnpm add -D @genui-guard/cli                   # genui-guard check and test
 ```
 
 You reuse your json-render catalog and tell genui-guard only the extra things it needs to know, which are the properties that are bound and the policies to enforce.

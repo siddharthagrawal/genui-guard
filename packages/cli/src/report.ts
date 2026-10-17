@@ -17,7 +17,7 @@ export function renderReport(report: EvalReport, meta: { date: string }): string
   out.push("# Eval report");
   out.push("");
   out.push(
-    `${meta.date}. ${clean.length} clean cases, ${detection.length} held-out detection cases, ${(report.durationMs / 1000).toFixed(1)}s, no network.`,
+    `${meta.date}. ${clean.length} clean cases, ${detection.length} held-out detection cases, ${duration(report.durationMs)}, no network.`,
   );
   out.push("");
   out.push(
@@ -180,6 +180,11 @@ function limit(value: number | undefined): string {
   return value === undefined ? "none set" : pct(value);
 }
 
+/** A suite that runs in 40ms should say so, rather than rounding itself to 0.0s. */
+function duration(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
 /** The pull request comment. Short, and leading with the same number. */
 export function renderComment(report: EvalReport, meta: { date: string }): string {
   const clean = report.suites.filter((s) => s.kind === "clean").flatMap((s) => s.cases);
@@ -202,7 +207,7 @@ export function renderComment(report: EvalReport, meta: { date: string }): strin
       ? "Thresholds held."
       : `**Thresholds failed.**\n${report.failures.map((f) => `- ${f}`).join("\n")}`,
     "",
-    `<sub>${meta.date} · ${clean.length + detection.length} cases · ${(report.durationMs / 1000).toFixed(1)}s · full report in \`evals/reports/latest.md\` · method in \`${PROTOCOL}\`</sub>`,
+    `<sub>${meta.date} · ${clean.length + detection.length} cases · ${duration(report.durationMs)} · full report in \`evals/reports/latest.md\` · method in \`${PROTOCOL}\`</sub>`,
   ];
 
   return lines.join("\n");

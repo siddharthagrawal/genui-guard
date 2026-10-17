@@ -14,7 +14,9 @@ That is deliberately smaller than the original plan. The reasoning is in the dec
 
 ## What comes next, and why in this order?
 
-The first item is a semantic check for claims that keyword matching misses. This is top of the list because it addresses the weakness I expect to be largest, and because I will have measured it by then rather than guessed at it. Someone writing that you can get your money back whenever you like has made a refund claim using none of the vocabulary a keyword rule looks for, and the first version will publish how often that happens.
+The first item is a semantic check for claims that keyword matching misses. It is top of the list because it is the largest weakness, and that is now measured rather than expected: the held-out suite catches 0 of 18 paraphrased claims, 0 of 4 invented scarcity claims, 0 of 4 comparisons and 0 of 6 claims about fields the source does not have, against 3 of 5 for the same claims written in the configured topics' own words. Someone writing that you can get their money back whenever they like has made a refund claim using none of the vocabulary a keyword rule looks for, and that is a third of the detection suite.
+
+The measurement also narrowed the target. Scarcity and comparison claims are not paraphrase problems at all: "only two seats left" and "lowest fare today" are checkable arithmetic against data the host already loaded, so they want a numeric claim policy rather than a model. Paraphrase and unsupported-topic claims are the part that genuinely needs semantics. That is two pieces of work rather than one, and the cheaper one covers 8 of the 32 missed cases.
 
 The open question is not whether a model could catch those cases, since it clearly could, but whether the cost is acceptable. A model call in the middle of a stream adds latency I have been careful to keep small, and it makes the same input capable of producing different decisions on different days, which undermines the auditability that is part of the point.
 

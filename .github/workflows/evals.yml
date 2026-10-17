@@ -96,7 +96,7 @@ jobs:
             // One comment per pull request, edited in place. A thread of
             // identical bot comments is how people learn to ignore a bot.
             const existing = comments.find(
-              (c) => c.user.type === "Bot" && c.body.includes(marker),
+              (c) => c.user?.type === "Bot" && c.body?.includes(marker),
             );
 
             if (existing) {
