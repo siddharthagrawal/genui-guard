@@ -1,6 +1,6 @@
 # Build plan
 
-There are three phases. Each is a git tag, and nothing moves forward until the acceptance criteria pass. This document is the working spec, so it is deliberately more prescriptive than the rest of `docs/`, and the parts that are genuinely undecided say so.
+There are three phases, and nothing moves forward until the acceptance criteria pass. Two tags came out of them rather than three: phases 1 and 2 both landed in the initial commit, so `ch2-travel` marks the end of the second and there is no honest commit to hang `ch1-core` on. This document is the working spec, so it is deliberately more prescriptive than the rest of `docs/`, and the parts that are genuinely undecided say so.
 
 ## Repository shape
 
@@ -115,7 +115,7 @@ Every `PolicyResult.reason` is one plain sentence a developer can act on, for ex
 
 ---
 
-## Phase 1, the guard. Tag `ch1-core`
+## Phase 1, the guard. No tag of its own
 
 Complete as of 14 October 2026. 137 tests, 96.9% statements and 87.3% branches on core.
 
@@ -136,7 +136,7 @@ Complete as of 14 October 2026. 137 tests, 96.9% statements and 87.3% branches o
 
 Three things came out differently from the plan. `GuardEvent` gained a `drop` kind, because blocking can happen after a parent has already streamed and the renderer needs telling. `ToolResult` gained an optional `key`, needed to address records in an array by identity rather than position, since position is exactly what a model gets wrong. And provenance gained a coherence check that blocks a component whose bound props resolve to different records, which catches the transposition failure and was not in the plan at all.
 
-## Phase 2, travel search. Tag `ch2-travel`
+## Phase 2, travel search. Tag `ch2-travel`, which covers phase 1 as well
 
 Build `packages/json-render`, `packages/react`, and `apps/travel`. Check json-render's current docs before starting, since the version here is pre-1.0.
 

@@ -249,12 +249,12 @@ Three of the numbers above moved because the suites found defects in code that 2
 
 ## How was this built?
 
-Each stage is a git tag, so you can check one out to see the project at that point.
+There are two tags rather than three. The first two phases landed in one commit, so no commit in this history shows the guard before the demo existed, and a `ch1-core` tag would check out the demo along with it. Checking out a tag shows the project as it was at that point.
 
 | Chapter | Tag | What it shows |
 |---|---|---|
-| The guard | `ch1-core` | A model authored fare blocked, an unsourced claim stripped, a sold out hotel removed from the tree, and a staff only button hidden, all in unit tests |
-| Travel search | `ch2-travel` | Agent composed flights and hotels rendered with json-render, chaos mode, guardrails on and off |
+| The guard | no tag | A model authored fare blocked, an unsourced claim stripped, a sold out hotel removed from the tree, and a staff only button hidden, all in unit tests |
+| Travel search | `ch2-travel` | The guard and the adapter, plus agent composed flights and hotels rendered with json-render, chaos mode, and guardrails on and off |
 | Proof | `ch3-evals` | The `genui-guard` CLI, the two suites, a 2.0% false-block rate with the detection gap stated, and a pull request comment carrying the numbers |
 
 ---
