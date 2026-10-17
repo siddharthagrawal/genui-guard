@@ -35,6 +35,8 @@ export type MergedOutcome = {
   final: Decision;
   /** Props to apply, already merged. Empty when nothing repairs. */
   patch: Record<string, PropValue>;
+  /** Props to drop from the element. Applied after `patch`. */
+  removeProps: string[];
   notes: string[];
   gatedActions: string[];
 };
@@ -52,6 +54,7 @@ export function mergeResults(
 ): MergedOutcome {
   const patch: Record<string, PropValue> = {};
   const patchOwner: Record<string, string[]> = {};
+  const removeProps = new Set<string>();
   const notes: string[] = [];
   const gatedActions: string[] = [];
   const decisions: Decision[] = [];
@@ -61,6 +64,10 @@ export function mergeResults(
 
     if (r.decision === "annotate" && r.note) notes.push(r.note);
     if (r.decision === "gate" && r.gatedActions) gatedActions.push(...r.gatedActions);
+
+    if (r.decision === "repair" && r.removeProps) {
+      for (const prop of r.removeProps) removeProps.add(prop);
+    }
 
     if (r.decision === "repair" && r.patch) {
       for (const [prop, value] of Object.entries(r.patch)) {
@@ -82,6 +89,7 @@ export function mergeResults(
   return {
     final: strictest(decisions),
     patch,
+    removeProps: [...removeProps],
     notes,
     gatedActions: [...new Set(gatedActions)],
   };

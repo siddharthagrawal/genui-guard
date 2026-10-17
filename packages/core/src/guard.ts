@@ -1,4 +1,5 @@
 import { checkA11y } from "./a11y.js";
+import { checkContract } from "./contract.js";
 import { mergeResults } from "./decisions.js";
 import { guardError, GuardError } from "./errors.js";
 import { checkProvenance } from "./provenance.js";
@@ -68,6 +69,13 @@ export function createGuard(config: GuardConfig): Guard {
       return finish(element, results, before, started, ctx, undefined);
     }
 
+    const resolved = resolveProps(element.props, state);
+
+    // Unknown props are stripped and a prop of the wrong type blocks, against
+    // the host's own schema. Props the guard cannot read are skipped, because
+    // treating "cannot verify" as "invalid" would withhold correct interfaces.
+    results.push(...checkContract(element, spec, resolved));
+
     // 2. Provenance.
     if ((spec.bound?.length ?? 0) > 0 && !state.hasAnyResult()) {
       throw guardError("GUARD_E_NO_TOOL_RESULT", {
@@ -78,7 +86,6 @@ export function createGuard(config: GuardConfig): Guard {
     results.push(...checkProvenance(element, spec, state));
 
     // 3. Policies.
-    const resolved = resolveProps(element.props, state);
     const entity = resolveEntity(element, spec, state);
 
     for (const policy of config.policies ?? []) {
@@ -109,7 +116,7 @@ export function createGuard(config: GuardConfig): Guard {
     }
 
     // 4. Accessibility.
-    results.push(...checkA11y(element, spec));
+    results.push(...checkA11y(element, spec, resolved));
 
     return finish(element, results, before, started, ctx, spec.fallback);
   }
@@ -129,13 +136,22 @@ export function createGuard(config: GuardConfig): Guard {
       // Conflicting repairs block, and the error explains which policies clashed.
       const err = e as GuardError;
       results.push({ policy: "mergeResults", decision: "block", reason: err.message });
-      merged = { final: "block" as const, patch: {}, notes: [], gatedActions: [] };
+      merged = {
+        final: "block" as const,
+        patch: {},
+        removeProps: [],
+        notes: [],
+        gatedActions: [],
+      };
     }
 
     const blocked = merged.final === "block";
-    const after: GuardElement | null = blocked
-      ? null
-      : { ...element, props: { ...element.props, ...merged.patch } };
+    let after: GuardElement | null = null;
+    if (!blocked) {
+      const props = { ...element.props, ...merged.patch };
+      for (const prop of merged.removeProps) delete props[prop];
+      after = { ...element, props };
+    }
 
     const entry: TraceEntry = {
       turnId: ctx.turnId,

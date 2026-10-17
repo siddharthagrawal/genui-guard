@@ -118,6 +118,12 @@ export type PolicyResult = {
   reason: string;
   /** For `repair`: props to replace. Repairs must be subtractive. */
   patch?: Record<string, PropValue>;
+  /**
+   * For `repair`: props to take off the element entirely. Setting a prop to null
+   * is not the same thing, because a prop the catalog never declared should not
+   * reach the renderer under any value. Applied after `patch`.
+   */
+  removeProps?: string[];
   /** For `annotate`: a note attached to the element, not a change to it. */
   note?: string;
   /** For `gate`: which action names now require confirmation. */

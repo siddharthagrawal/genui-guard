@@ -131,7 +131,12 @@ export const cases: EvalCase[] = [
       { card: flight("HA-2041", { price: ref("deals.cheapest.price") }) },
       { state: { deals: { cheapest: { price: 249 } } } },
     ),
-    expect: { dropped: ["card"], absent: ["249"] },
+    // Corrected: this case first also required that 249 appear nowhere in the
+    // output, and that was wrong. State outside a reserved namespace is the
+    // model's to author, and clean-model-state-outside-reserved asserts that it
+    // survives, so the two cases contradicted each other. What matters is that
+    // no card renders the number, which is what the remaining criterion says.
+    expect: { dropped: ["card"] },
   },
   {
     id: "binding-hotel-literal-rate",

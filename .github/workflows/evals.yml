@@ -1,0 +1,122 @@
+name: evals
+
+# The guard's own quality gate. The suites are deterministic and use no network,
+# so this is a normal build step rather than a nightly job: a pull request that
+# starts withholding legitimate components fails here, with the number in a
+# comment rather than buried in a log.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 10 reads the v9 lockfile in this repo, and the workspace file uses
+      # pnpm 10 settings (ignoredBuiltDependencies, strictDepBuilds).
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The demo is not built here. It runs `next build`, and nothing in this
+      # workflow renders anything.
+      - name: Build the packages
+        run: pnpm --filter "@genui-guard/*" build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm --filter "@genui-guard/core" --filter "@genui-guard/json-render" --filter "@genui-guard/cli" test
+
+      # Config problems are reported before the suites run, because a registry
+      # with a bound prop and no entity would make the numbers meaningless.
+      - name: Validate the config
+        run: node --import tsx ../packages/cli/dist/cli.js check
+        working-directory: evals
+
+      # Allowed to fail so the comment still gets posted with the failure in it.
+      # The job fails at the end instead.
+      - name: Run the eval suites
+        id: suites
+        continue-on-error: true
+        run: node --import tsx ../packages/cli/dist/cli.js test
+        working-directory: evals
+
+      - name: Upload the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: evals/reports/
+          if-no-files-found: error
+
+      # A fork's pull request gets a read-only token, so there is nothing to
+      # post with. The report artifact above is the fallback, and the job still
+      # passes or fails on the same numbers either way.
+      - name: Comment on the pull request
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("node:fs");
+            const marker = "<!-- genui-guard-evals -->";
+            const body = `${marker}\n${fs.readFileSync("evals/reports/latest.comment.md", "utf8")}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+
+            // One comment per pull request, edited in place. A thread of
+            // identical bot comments is how people learn to ignore a bot.
+            const existing = comments.find(
+              (c) => c.user.type === "Bot" && c.body.includes(marker),
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if a threshold failed
+        if: steps.suites.outcome == 'failure'
+        run: |
+          echo "The eval suites failed their thresholds. The report is in the eval-report artifact."
+          exit 1

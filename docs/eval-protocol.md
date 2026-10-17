@@ -34,6 +34,25 @@ Three commitments follow from that, and they constrain the rest of the phase.
    report with their zero. A keyword checker that appeared to catch paraphrases
    would be evidence of a leaked implementation, not of a good product.
 
+## Corrections made after the cases were committed
+
+Recorded here because the protocol above says they have to be.
+
+- **`binding-unreserved-namespace` asked for something the design rejects.** It
+  required the invented price to appear nowhere in the output, and state outside
+  a reserved namespace is the model's to author: `clean-model-state-outside-reserved`
+  asserts that such state survives, so the two cases contradicted each other.
+  The criterion that the card must not render is kept, which is the thing worth
+  measuring. The case was failing before the correction and still fails after
+  it only if the card renders.
+- **The staff role was named wrong in two cases.** Both used `role: "staff"`,
+  and the application's role is `support_agent`. A session role is wiring rather
+  than a claim about the data, so changing it does not make either case easier
+  to catch: `permission-staff-control-for-customer` still runs as a customer,
+  and the two corrected cases are the ones where the role is supposed to pass.
+  Left uncorrected they would have reported a false block that was the fixture's
+  fault.
+
 ## What each suite measures
 
 **Clean** is the headline. Legitimate components, correct data, prose and badges

@@ -146,7 +146,9 @@ export const cases: EvalCase[] = [
     family: "gating",
     describe:
       "A refund in a staff session, where the role check passes. Being allowed to do a thing is not the same as doing it without being asked.",
-    ctx: { session: { role: "staff" } },
+    // Corrected to the application's own role name. See the note on
+    // clean-staff-control-for-staff.
+    ctx: { session: { role: "support_agent" } },
     spec: screen({
       override: {
         type: "RefundOverride",

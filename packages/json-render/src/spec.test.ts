@@ -234,3 +234,41 @@ describe("gating via json-render's confirm field", () => {
     expect(element.on?.press?.name).toBe("book");
   });
 });
+
+/**
+ * The eval suites found this. A model that writes a state key as a JSON Pointer
+ * rather than as a plain key used to skip the reserved-namespace screen
+ * entirely, because the whole pointer became the root segment and core found no
+ * namespace by that name. The fabrication then sat behind a bound ref, which is
+ * the failure that looks most legitimate.
+ */
+describe("state keys, however the model spells them", () => {
+  const forms = {
+    plain: "fares",
+    dotted: "fares.HA-2041.price",
+    pointer: "/fares/HA-2041/price",
+  };
+
+  it("normalises every form to a dotted path before core sees it", () => {
+    for (const key of Object.values(forms)) {
+      const events = specToEvents({ root: "r", elements: {}, state: { [key]: 1 } });
+      const state = events.find((e) => e.kind === "state");
+
+      expect(state).toBeDefined();
+      expect(state?.kind === "state" && state.path.startsWith("fares")).toBe(true);
+      expect(state?.kind === "state" && state.path.includes("/")).toBe(false);
+    }
+  });
+
+  it("writes an allowed patch back under the key the renderer was given", () => {
+    const spec: JsonRenderSpec = {
+      root: "root",
+      elements: { root: { type: "Stack", props: {}, children: [] } },
+      state: { "/ui/tab": "flights" },
+    };
+
+    const { spec: out } = eventsToSpec(spec, specToEvents(spec));
+
+    expect(out.state).toEqual({ "/ui/tab": "flights" });
+  });
+});

@@ -1,0 +1,30 @@
+{
+  "name": "@genui-guard/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The two eval suites. Detection is held out, clean is the headline.",
+  "scripts": {
+    "prebuild-deps": "pnpm --filter @genui-guard/core --filter @genui-guard/json-render --filter @genui-guard/cli build",
+    "precheck": "pnpm run prebuild-deps",
+    "check": "node --import tsx ../packages/cli/dist/cli.js check",
+    "pretest": "pnpm run prebuild-deps",
+    "test": "node --import tsx ../packages/cli/dist/cli.js test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@genui-guard/cli": "workspace:*",
+    "@genui-guard/core": "workspace:*",
+    "@genui-guard/json-render": "workspace:*",
+    "@json-render/core": "0.21.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

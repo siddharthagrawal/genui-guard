@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "apps/*"
+  - "evals"
 
 # esbuild's postinstall only fetches a fallback binary. The real one arrives via
 # its platform optional dependency, so skipping the script is a decision rather

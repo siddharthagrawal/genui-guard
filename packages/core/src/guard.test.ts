@@ -12,6 +12,9 @@ const FARES = [
 
 const HOTELS = [
   { hotelId: "H-1", name: "Azul Rooms", nightly: 120, roomsLeft: 3, imageAlt: "", loyaltyId: "9912348877" },
+  // Nothing on this record can supply alt text, which is the only way the a11y
+  // check should reach a block once it can read bound values.
+  { hotelId: "H-2", name: "", nightly: 90, roomsLeft: 2, imageAlt: "" },
 ];
 
 const SPECS: ComponentSpec[] = [
@@ -287,12 +290,29 @@ describe("accessibility", () => {
     expect(element?.props.imageAlt).toEqual({ kind: "literal", value: "Azul Rooms" });
   });
 
+  // The eval suites found this one. In any real catalog the name beside an
+  // image is bound rather than typed, so reading literals alone meant the
+  // repair almost never fired and the card was withheld instead.
+  it("fills missing alt text from a bound name, not only from a typed one", () => {
+    const { decision, element } = guard.check(
+      {
+        id: "ht3",
+        type: "HotelCard",
+        props: { name: ref("hotels.H-1.name"), imageAlt: lit("") },
+        children: [],
+      },
+      CTX,
+    );
+    expect(decision).toBe("repair");
+    expect(element?.props.imageAlt).toEqual({ kind: "literal", value: "Azul Rooms" });
+  });
+
   it("blocks when nothing on the element can supply alt text", () => {
     const { decision, trace } = guard.check(
       {
         id: "ht2",
         type: "HotelCard",
-        props: { name: ref("hotels.H-1.name"), imageAlt: lit("") },
+        props: { name: ref("hotels.H-2.name"), imageAlt: lit("") },
         children: [],
       },
       CTX,

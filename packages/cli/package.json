@@ -1,0 +1,64 @@
+{
+  "name": "@genui-guard/cli",
+  "version": "0.1.0",
+  "description": "Validate a genui-guard config and run its eval suites. Reports the false-block rate first.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "genui-guard": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm run build && pnpm run test"
+  },
+  "dependencies": {
+    "@genui-guard/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "zod": "^4.3.6"
+  },
+  "sideEffects": false,
+  "keywords": [
+    "generative-ui",
+    "guardrails",
+    "llm",
+    "ai-safety",
+    "evals",
+    "provenance",
+    "json-render",
+    "cli"
+  ],
+  "homepage": "https://github.com/siddharthagrawal/genui-guard/tree/main/packages/cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siddharthagrawal/genui-guard.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/siddharthagrawal/genui-guard/issues"
+  },
+  "author": "Siddharth Agrawal (https://github.com/siddharthagrawal)",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

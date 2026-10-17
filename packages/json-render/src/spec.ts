@@ -88,10 +88,17 @@ export function specToEvents(spec: JsonRenderSpec): GuardEvent[] {
   // the renderer unexamined just because the spec was malformed.
   for (const id of Object.keys(spec.elements)) visit(id);
 
-  // Host state is emitted as patches so the guard can screen it, which is the
-  // whole point: the model supplies some of this.
+  // State is emitted as patches so the guard can screen it, which is the whole
+  // point: the model supplies some of this.
+  //
+  // Keys are normalised first. A state key arrives as a plain key, a dotted
+  // path or a JSON Pointer depending on how the model wrote it, and passing a
+  // pointer through unnormalised meant "/fares/HA-2041/price" had a root
+  // segment of "/fares/HA-2041/price" rather than "fares". Core then found no
+  // reserved namespace for it and let the write through, so the fabrication a
+  // bound ref resolves against arrived by simply spelling the path differently.
   for (const [key, value] of Object.entries(spec.state ?? {})) {
-    events.push({ kind: "state", path: key, value });
+    events.push({ kind: "state", path: normaliseStateKey(key), value });
   }
 
   return events;
@@ -113,11 +120,21 @@ export function eventsToSpec(
   const state: Record<string, unknown> = {};
   let root = original.root;
 
+  // Keys were normalised on the way in, so an allowed patch is written back
+  // under the key the renderer was given rather than under the guard's form of
+  // it. Screening a path is not a licence to rewrite the host's state keys.
+  const originalKeys = new Map<string, string>();
+  for (const key of Object.keys(original.state ?? {})) {
+    originalKeys.set(normaliseStateKey(key), key);
+  }
+
   for (const event of events) {
     if (event.kind === "root") root = event.id;
     else if (event.kind === "element") kept.set(event.id, event.element.props);
     else if (event.kind === "drop") dropped.add(event.id);
-    else if (event.kind === "state") state[event.path] = event.value;
+    else if (event.kind === "state") {
+      state[originalKeys.get(event.path) ?? event.path] = event.value;
+    }
   }
 
   const elements: Record<string, JsonRenderElement> = {};

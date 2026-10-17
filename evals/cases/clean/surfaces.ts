@@ -105,7 +105,11 @@ export const cases: EvalCase[] = [
     family: "permission-ok",
     describe:
       "The refund override in a staff session, where it belongs. The detection suite shows the same control to a customer.",
-    ctx: { session: { role: "staff" } },
+    // Corrected after the suites were written: the application's role is named
+    // "support_agent", and the case said "staff". A session role is wiring
+    // rather than a claim about the data, so this is a correction and not a
+    // reworded case. Recorded in docs/eval-protocol.md.
+    ctx: { session: { role: "support_agent" } },
     spec: screen({
       override: { type: "RefundOverride", props: { reason: "Weather disruption" }, children: [] },
     }),

@@ -8,16 +8,20 @@ There are three phases. Each is a git tag, and nothing moves forward until the a
 genui-guard/
 ├── CLAUDE.md                 # rules and invariants, read first
 ├── packages/
-│   ├── core/                 # guard, provenance, policies, stream, trace, errors
-│   └── json-render/          # adapter: json-render spec and patches <-> neutral events
+│   ├── core/                 # guard, contract, provenance, policies, stream, trace, errors
+│   ├── json-render/          # adapter: json-render spec and patches <-> neutral events
+│   └── cli/                  # genui-guard check and test, plus the eval harness
 ├── apps/travel/              # travel search demo, three run modes
+├── evals/                    # the two suites, the config, and the written report
 ├── examples/genui-guard.config.ts
 └── docs/
 ```
 
 `packages/core` has no dependency on the adapter, and `packages/json-render` is the only place json-render appears outside the demo.
 
-Two planned packages turned out to be unnecessary. `packages/react` was going to hold a confirmation modal and fallbacks, and json-render already ships `ConfirmDialog` plus an action layer that honours the `confirm` field a gate sets, so there was nothing left for it to do. `packages/cli` and `evals/` belong to phase 3 and do not exist yet.
+One planned package turned out to be unnecessary. `packages/react` was going to hold a confirmation modal and fallbacks, and json-render already ships `ConfirmDialog` plus an action layer that honours the `confirm` field a gate sets, so there was nothing left for it to do.
+
+`packages/cli` and `evals/` arrived in phase 3. The CLI depends on core and on no renderer: a config hands it a `run` adapter, so the suites can be written against json-render without the tooling knowing what json-render is.
 
 ## The neutral model
 
@@ -158,19 +162,31 @@ Build `packages/cli`, the two suites, and the GitHub Action.
 
 Two suites only, for the reasons in the decision log. **Detection** runs held-out cases including paraphrased claims, and the paraphrases must be written before the claim policy is implemented, or the circularity returns. **Clean** runs legitimate components that must pass untouched, and its false-block rate is the headline number.
 
-- [ ] `genui-guard check` validates config and registry, and catches `bound` declared without `entity` and `key`
-- [ ] `genui-guard test --mode replay` runs in under 30 seconds with no network
-- [ ] Report written to `evals/reports/latest.md`, with the detection gap stated rather than smoothed
-- [ ] README eval section filled with real measured numbers
-- [ ] Non-zero exit when configured thresholds fail
-- [ ] A test pull request shows the eval comment
+Complete as of 17 October 2026, apart from the outside testers. 51 clean cases, 76 held-out detection cases, 2.0% false blocks, 51.3% detection.
+
+- [x] `genui-guard check` validates config and registry, and catches `bound` declared without `entity` and `key`, plus a typo in `bound`, an array tool result with no key, a policy referenced but never called, and a threshold that is not a rate
+- [x] `genui-guard test --mode replay` runs in under 30 seconds with no network, measured at 0.2s
+- [x] Report written to `evals/reports/latest.md`, with the detection gap stated rather than smoothed
+- [x] README eval section filled with real measured numbers
+- [x] Non-zero exit when configured thresholds fail, asserted in `cli.test.ts` against a fixture config whose limit is zero
+- [x] A test pull request shows the eval comment
 - [ ] Three outside testers reach a first guarded component in under five minutes, with findings and fixes recorded
+
+Four things came out differently from the plan.
+
+The held-out cases were written and committed in their own commit, before the claim policy's implementation or its configured topic list had been read in this phase, and `docs/eval-protocol.md` pre-registers what that forbids afterwards. That was not in the plan as a mechanism, only as an intention, and the intention would not have survived contact with a disappointing number.
+
+The suites found three defects that 206 passing tests had not. Contract property validation was never wired into the guard at all, so the second half of check-order step 1 was documentation rather than behaviour. A state key written as a JSON Pointer skipped the reserved-namespace screen entirely, because the whole pointer became the root segment and matched no namespace, which is the headline failure arriving by spelling the path differently. And the accessibility repair could only read literal properties, so in any real catalog, where the name beside an image is bound, it withheld the card instead of repairing it. All three are fixed, with tests, and each is noted where it was fixed.
+
+The CLI knows nothing about json-render. The config supplies a `run` adapter, so the CLI depends on core only and the suites stay renderer-neutral, which keeps the layer claim provable in the tooling as well as in the library.
+
+The two false-block rates are reported separately. A withheld element and an element that rendered with a true badge removed are both wrong and are not the same size of wrong, and the phase 2 `bagsIncluded` bug was the second kind.
 
 ## How do the packages get published?
 
-Not yet, deliberately. The README holds publication until the eval suites exist, so the false block rate is a measured number rather than a promise, which is the bar the project sets for itself elsewhere.
+`pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`. The gate was the eval suites, so that the false block rate is a measured number rather than a promise, and that gate is now passed. `evals` is private and matches the filter, so pnpm skips it.
 
-The manifests are ready, so when that changes it is `pnpm release` from the root. Two details are worth not rediscovering.
+Three packages publish: core, the json-render adapter, and the CLI. Two details are worth not rediscovering.
 
 Use `pnpm publish`, never `npm publish`. The adapter depends on `"@genui-guard/core": "workspace:*"`, and pnpm rewrites that to the real version on publish while npm would ship the literal string and break every install.
 
@@ -184,4 +200,4 @@ The `@genui-guard` scope is reserved by creating a free npm organisation of that
 
 Carried deliberately rather than guessed at.
 
-Whether blocking on `expr` in a bound prop is too strict, which the eval false-block rate will answer. How the reserved namespace should behave across turns, since stale data from a previous turn is a real failure the current design does not address. Whether `maskFields` belongs in v1 at all, given it has no demo. And whether `check()` on a single element is worth keeping in the public surface once `stream()` works, or whether it should be test-only.
+Whether blocking on `expr` in a bound prop is too strict now has a number rather than an opinion. It is the only false block in the clean suite, 1 of 51, and the case it fires on is json-render's own `repeat` with `$item` properties, which is ordinary renderer usage rather than an edge case. The other four expression cases pass, so a template or a computed value on a property that is not bound is already fine. The question left is narrower than the original one: whether `$item` inside a `repeat` over a reserved namespace can be attributed to a record, which it probably can, since the collection being iterated is the host's. How the reserved namespace should behave across turns, since stale data from a previous turn is a real failure the current design does not address. Whether `maskFields` belongs in v1 at all, given it has no demo. And whether `check()` on a single element is worth keeping in the public surface once `stream()` works, or whether it should be test-only.

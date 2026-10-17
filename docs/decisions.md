@@ -134,6 +134,18 @@ The cost is that the headline numbers will look worse than they would under the 
 
 ---
 
+## Why does the eval harness not know what json-render is?
+
+The quick version of the CLI would take a json-render spec, call `guardSpec` itself, and read the result. Every suite in this repository targets json-render, so the indirection buys nothing today.
+
+I gave the CLI a `run` adapter in the config instead, so it depends on core and on no renderer. The reason is the same one that keeps renderer types out of the core, and it applies more sharply to the tooling: the claim that this is a layer rather than a plugin for one renderer is tested by whether a second catalog can be measured with the same harness. A harness welded to one renderer would mean the first adapter arrives with no way to produce comparable numbers, and the numbers are the entire argument. It also keeps the case criteria honest, since a case can only talk about what reached the browser and not about internals the CLI happens to share with the guard.
+
+What I gave up is a few lines of plumbing in every config, and a small amount of type safety at the boundary, since the spec arrives as `unknown` and the config casts it.
+
+A related choice inside the harness. Case criteria never name a policy, a decision or an error code; they name an element that must be gone, a string that must not appear, an action that must ask first. That makes some failures harder to diagnose, because the report says a fabrication survived without saying which check should have caught it. I took that cost deliberately, because criteria written in the implementation's vocabulary turn a refactor into a regression and quietly recreate the circularity the two-suite design exists to avoid.
+
+---
+
 ## Why keep the core free of renderer types?
 
 It would be faster to let the core work directly with json-render's specification types, since that is the renderer being built against first and the adapter would mostly disappear.

@@ -86,7 +86,7 @@ Every decision below is recorded in a trace.
 
 The guard verifies that a component's properties are faithful to the entity the model said it was showing. It cannot verify that this was the right entity. If the model binds every property correctly to a fare the user never asked about, every check passes, the trace is clean, and the card is still wrong. Choosing the right entity remains the model's job, and the eval suites measure that gap rather than hiding it.
 
-Claim checks look for particular words, so a refund promise phrased as being able to get your money back whenever you like carries no vocabulary the rules recognise. The evals publish how often that happens rather than papering over it, and a semantic check is the first item on the roadmap.
+Claim checks look for particular words, so a refund promise phrased as being able to get your money back whenever you like carries no vocabulary the rules recognise. That is measured rather than papered over: the held-out suite catches 0 of 18 paraphrased claims, and a semantic check is the first item on the roadmap.
 
 Accessibility coverage is static only. Alt text, labels and heading structure are all visible in the specification, so the guard can check them. Contrast, focus order and ARIA correctness need the rendered DOM, which a server-side guard never sees, so those belong to a different layer.
 
@@ -203,9 +203,46 @@ I run two suites, because the two numbers answer different questions. Detection 
 
 One number is deliberately absent. I do not report detection against failures injected with the same vocabulary the checker matches on, because that figure is circular and always close to perfect.
 
-**Not built yet.** The eval suites, the `genui-guard` CLI and the GitHub Action are the remaining phase of work, and this section describes the design rather than something you can run today. No numbers are published here, and none will be estimated. When the suites exist, the results will come from a run reproducible from this repo.
+Both suites run from this repository, deterministically, with no network and no API key.
 
-What does exist is the measurement the demo already produces. Every decision, including every allow, is traced with a plain-language reason, and the demo's developer panel reports interventions separately from the elements the guard examined and allowed.
+```bash
+pnpm --filter @genui-guard/evals check   # validates the config and the registry
+pnpm --filter @genui-guard/evals test    # runs both suites, in about a fifth of a second
+```
+
+Measured on 17 October 2026, over 51 legitimate components and 76 held-out failures. The full run is in [evals/reports/latest.md](evals/reports/latest.md), and the cases are in [evals/cases](evals/cases).
+
+| Measure | Rate | |
+|---|---|---|
+| **False blocks**, legitimate components withheld | **2.0%**, 1 of 51 | the headline |
+| False modifications, something true taken out of one | 0.0%, 0 of 51 | |
+| Detection, held-out failures caught | 51.3%, 39 of 76 | with the gap below |
+
+The single false block is the one I would have predicted and could not have priced without measuring: a legitimate `repeat` over the loaded fares, with properties reading json-render's `$item`. The guard blocks an expression in a bound property, because a template can interpolate a model-written fragment, and `$item` is indistinguishable to it from one. The suite carries five such cases and this is the only one that fires, so iteration over verified data is the cost of that rule, and softening it is now a decision with a number attached rather than a matter of taste.
+
+Detection is where the honest part lives.
+
+| Family | Caught | |
+|---|---|---|
+| Broken bindings: a typed price, a template, a dangling reference, two records in one card | 11 of 12 | |
+| Model state overwriting the host's, which a correct binding then resolves against | 4 of 5 | |
+| Contract: an unknown component, a property of the wrong type, an invented property | 3 of 3 | |
+| Unavailable records reaching the results | 5 of 5 | |
+| Unsafe URLs, credential fields, an unmasked loyalty number | 6 of 6 | |
+| A staff control in a customer session | 2 of 2 | |
+| A mutating action with no confirmation | 3 of 3 | |
+| Missing alternative text and labels | 2 of 3 | |
+| Claims in the words the configured topics use | 3 of 5 | |
+| **Claims paraphrased**, which is how a model actually writes them | **0 of 18** | |
+| **Invented urgency**: two seats left, against nine | **0 of 4** | |
+| **Comparisons**: "lowest fare today", when it is not | **0 of 4** | |
+| **Claims the source has no field for at all**: breakfast, a shuttle, wifi | **0 of 6** | |
+
+Nothing in the last four rows was caught, and that is the shape of the limitation rather than a bug to fix with better keywords. A deterministic checker matches topics, so "Refundable" on a non-refundable fare is caught and "Cancel any time for a full refund" on the same fare is not. The same rule that produces a 2% false-block rate produces a 0% detection rate on paraphrase, and the trade is the whole argument for a semantic check, which is the first item on [the roadmap](ROADMAP.md).
+
+Two further limits came out of the run and are worth stating because neither is visible from the code. Verification only covers the properties a host declares bound, so the demo, which binds airline, price and stops, does not catch a card showing one flight's price beside another flight's departure time. And accessibility rules only fire where the host asked for them, so the demo's unlabelled text input passes. Both are configuration rather than defects, and both are the kind of gap `genui-guard check` is for.
+
+Three of the numbers above moved because the suites found defects in code that 206 passing tests had not. Property validation against the host's schema was never wired in, a state key written as a JSON Pointer skipped the reserved-namespace screen completely, and the alternative-text repair could not read a bound name, so it withheld cards instead of repairing them. [docs/eval-protocol.md](docs/eval-protocol.md) records the method, including what may not be changed after the cases were written and the two corrections that were made.
 
 ---
 
@@ -217,7 +254,7 @@ Each stage is a git tag, so you can check one out to see the project at that poi
 |---|---|---|
 | The guard | `ch1-core` | A model authored fare blocked, an unsourced claim stripped, a sold out hotel removed from the tree, and a staff only button hidden, all in unit tests |
 | Travel search | `ch2-travel` | Agent composed flights and hotels rendered with json-render, chaos mode, guardrails on and off |
-| Proof | `ch3-evals` | Not built yet. Detection and false block numbers, and a pull request comment with the change against `main` |
+| Proof | `ch3-evals` | The `genui-guard` CLI, the two suites, a 2.0% false-block rate with the detection gap stated, and a pull request comment carrying the numbers |
 
 ---
 

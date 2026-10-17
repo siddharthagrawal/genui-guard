@@ -33,9 +33,11 @@ These are the claims the product makes. Breaking one is a bug even if tests pass
 ## Commands
 
 ```
-pnpm install | pnpm build | pnpm test | pnpm lint
+pnpm install | pnpm build | pnpm test | pnpm lint | pnpm typecheck
 pnpm --filter travel dev
 pnpm --filter @genui-guard/core test --coverage
+pnpm --filter @genui-guard/evals check   # config and registry, with fixes
+pnpm --filter @genui-guard/evals test    # both suites, writes evals/reports/latest.md
 ```
 
 ## Environment traps
@@ -49,11 +51,23 @@ Each of these cost time once already.
 - **`strictDepBuilds: false` in `pnpm-workspace.yaml` is deliberate.** Without it a correct install exits 1 over esbuild's skipped postinstall, which would fail CI. esbuild's real binary arrives via its platform optional dependency.
 - **Commits use a repo-local noreply email.** `git config user.email` here is `5350259+siddharthagrawal@users.noreply.github.com` on purpose, so no real address enters the public history. Do not change it or fall back to the global identity.
 
+## Eval rules
+
+The detection suite is held out, and `docs/eval-protocol.md` is a pre-registration rather than a description. Three things follow and they are not negotiable in code review.
+
+- **Do not reword a case because it was missed.** A case is corrected only when it is wrong about the source data or contradicts another case, and the correction is recorded in the protocol document with its reason.
+- **Do not add a claim topic to catch a case in the suite.** A policy change is legitimate here only when the defect is wrong independent of these cases.
+- **Do not drop a zero from the denominator.** Families the deterministic checks cannot see keep their zeros in the report, and the README states them.
+
+The suites run the demo's own `guardConfig`, imported rather than copied, which is what keeps the configuration from being quietly tuned to the cases that score it.
+
 ## What the last two phases taught
 
 Two of the most valuable bugs were found by putting real data through the demo, not by tests. A legitimate "Bag included" badge was being stripped because the claim topic was prose and the field was `bagsIncluded`, and the claim policy was not inspecting list props at all, so a fabricated badge in an array received no checking. Both survived a fully passing suite.
 
 Expect the eval suites to behave the same way. Budget time for fixing what they surface rather than only for building the harness.
+
+They did. Phase 3's suites found three defects behind a fully passing 206-test suite: contract property validation was never wired into the guard, a state key written as a JSON Pointer skipped the reserved-namespace screen because the whole pointer became the root segment, and the alt-text repair could only read literal props, so it withheld cards in the one shape that occurs in practice. The pattern in all three, and in both phase 2 bugs, is the same: the code checked one representation of a thing that arrives in several.
 
 ## Stack
 

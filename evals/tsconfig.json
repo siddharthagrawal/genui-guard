@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "jsx": "preserve"
+  },
+  "include": [
+    "genui-guard.config.ts",
+    "src/**/*.ts",
+    "cases/**/*.ts",
+    "../apps/travel/lib/**/*.ts"
+  ]
+}
