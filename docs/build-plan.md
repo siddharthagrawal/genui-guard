@@ -184,17 +184,27 @@ The two false-block rates are reported separately. A withheld element and an ele
 
 ## How do the packages get published?
 
-`pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`. The gate was the eval suites, so that the false block rate is a measured number rather than a promise, and that gate is now passed. `evals` is private and matches the filter, so pnpm skips it.
+Published on 17 October 2026, all three at `0.1.0`: core, the json-render adapter, and the CLI. The command is `pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`; `evals` is private and matches the filter, so pnpm skips it.
 
-Three packages publish: core, the json-render adapter, and the CLI. Two details are worth not rediscovering.
+Four things about that first publish are worth not rediscovering.
 
-Use `pnpm publish`, never `npm publish`. The adapter depends on `"@genui-guard/core": "workspace:*"`, and pnpm rewrites that to the real version on publish while npm would ship the literal string and break every install.
+It has to be run by a human in a real terminal. The account's second factor is a security key, so there is no OTP to pass and pnpm completes the challenge in a browser, failing with `ERR_PNPM_OTP_NON_INTERACTIVE` anywhere else. npm also refuses the publish outright until 2FA is enabled on the account, with a 403 that names the requirement.
 
-Both manifests carry `publishConfig.access: "public"`. Scoped packages default to restricted, and publishing one without that field fails unless the account is paid, which is the most common first-publish failure.
+pnpm publishes each scoped package in two steps, a `0.0.0-stage` placeholder and then the real version about a minute later. Both placeholders are still in the public version list for core and the adapter, because they were only noticed after the window to think about it had opened.
 
-`prepublishOnly` runs the build and the tests, so an untested or unbuilt package cannot be published by accident. Both were verified with a dry run: 47 files for core and 31 for the adapter, with the README and LICENSE included and no sources or tests leaking into the tarball.
+A new package's aggregate document lags its own contents. The CLI's exact-version document and tarball both answered 200 while `/@genui-guard%2Fcli` was still a 404, which is what `npm install` reads, so the package looked unpublished for about a minute. The second `pnpm publish` attempt is what settled it, refusing with "You cannot publish over the previously published versions: 0.1.0".
 
-The `@genui-guard` scope is reserved by creating a free npm organisation of that name, which requires no publish and no CLI login.
+Two further details, from before the publish.
+
+Use `pnpm publish`, never `npm publish`. The adapter depends on `"@genui-guard/core": "workspace:*"`, and pnpm rewrites that to the real version on publish while npm would ship the literal string and break every install. The published adapter carries `"@genui-guard/core": "0.1.0"`, so the rewrite did happen. There is a second reason, found by running the wrong command: npm reads `.npmrc` from the current directory and from home and does not walk up, so `npm publish` inside `packages/core` resolved to this machine's global CodeArtifact registry rather than to npm. A dry run reported the CodeArtifact URL, which is the only reason it was caught.
+
+All three manifests carry `publishConfig.access: "public"`. Scoped packages default to restricted, and publishing one without that field fails unless the account is paid, which is the most common first-publish failure.
+
+`prepublishOnly` runs the build and the tests, so an untested or unbuilt package cannot be published by accident. The published tarballs carry 51 files for core, 31 for the adapter and 35 for the CLI, with the README and LICENSE in each and no sources or tests leaking.
+
+The published packages were then verified from the outside rather than assumed: a scratch project installed all three from the registry, built a catalog against the real `@json-render/core`, and ran `genui-guard check` and `genui-guard test` on two cases. A literal price blocked and an unsourced refund badge was stripped, which exercises the whole path through published artifacts only.
+
+The `@genui-guard` scope was reserved ahead of time by creating a free npm organisation of that name, which requires no publish and no CLI login.
 
 ## Open questions
 
