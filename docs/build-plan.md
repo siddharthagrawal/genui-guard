@@ -169,7 +169,7 @@ Complete as of 17 October 2026, apart from the outside testers. 51 clean cases, 
 - [x] Report written to `evals/reports/latest.md`, with the detection gap stated rather than smoothed
 - [x] README eval section filled with real measured numbers
 - [x] Non-zero exit when configured thresholds fail, asserted in `cli.test.ts` against a fixture config whose limit is zero
-- [x] A test pull request shows the eval comment
+- [ ] A test pull request shows the eval comment
 - [ ] Three outside testers reach a first guarded component in under five minutes, with findings and fixes recorded
 
 Four things came out differently from the plan.
