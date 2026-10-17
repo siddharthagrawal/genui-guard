@@ -38,6 +38,23 @@ pnpm --filter travel dev
 pnpm --filter @genui-guard/core test --coverage
 ```
 
+## Environment traps
+
+Each of these cost time once already.
+
+- **Do not touch `~/.npmrc`.** The machine's global npm points at an Amazon CodeArtifact registry with an expired token. This repo has its own `.npmrc` pinning the public registry, which is what makes installs work. Fixing the global config is not ours to do.
+- **Stop the dev server before `pnpm -r build`.** The recursive build runs `next build`, which overwrites `.next` underneath a running `next dev` and produces a confusing 500 on every route. Symptom looks like a code bug and is not.
+- **`apps/travel` relative imports must not carry `.js` extensions.** Next's bundler does not rewrite `.js` to `.ts` for app code, so `from "../lib/data.js"` fails to resolve. Package code under `packages/` does use `.js`, because it is compiled by `tsc`.
+- **The travel app's `test` script runs Playwright, not Vitest.** Its real tests are the browser smoke tests in `apps/travel/e2e`. `pnpm -r test` therefore starts a dev server, reusing one if already running.
+- **`strictDepBuilds: false` in `pnpm-workspace.yaml` is deliberate.** Without it a correct install exits 1 over esbuild's skipped postinstall, which would fail CI. esbuild's real binary arrives via its platform optional dependency.
+- **Commits use a repo-local noreply email.** `git config user.email` here is `5350259+siddharthagrawal@users.noreply.github.com` on purpose, so no real address enters the public history. Do not change it or fall back to the global identity.
+
+## What the last two phases taught
+
+Two of the most valuable bugs were found by putting real data through the demo, not by tests. A legitimate "Bag included" badge was being stripped because the claim topic was prose and the field was `bagsIncluded`, and the claim policy was not inspecting list props at all, so a fabricated badge in an array received no checking. Both survived a fully passing suite.
+
+Expect the eval suites to behave the same way. Budget time for fixing what they surface rather than only for building the harness.
+
 ## Stack
 
 pnpm workspaces, no Turborepo (four workspaces does not need a task graph). Vitest for tests, Playwright for the demo smoke test. Next.js App Router and Tailwind for the demo. Node 20+, ESM only. Web Streams for the transform.
