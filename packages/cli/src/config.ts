@@ -63,15 +63,37 @@ export async function loadModule(file: string): Promise<Record<string, unknown>>
   try {
     return (await import(pathToFileURL(file).href)) as Record<string, unknown>;
   } catch (err) {
-    const code = (err as { code?: string }).code;
-    if (code === "ERR_UNKNOWN_FILE_EXTENSION" || code === "ERR_UNSUPPORTED_ESM_URL_SCHEME") {
-      throw new CliError(
-        `This Node cannot load ${file} on its own.`,
-        "Run the CLI under a TypeScript loader, for example `node --import tsx node_modules/.bin/genui-guard test`, or point --config at compiled JavaScript. Node 22.18 and later load .ts files without a loader.",
-      );
-    }
-    throw err;
+    throw describeLoadFailure(err, file) ?? err;
   }
+}
+
+/**
+ * Turns a module-loading failure into something with a way out of it. Separate
+ * from `loadModule` so it can be tested against the codes Node produces, which
+ * a test runner's own module loader does not reproduce.
+ */
+export function describeLoadFailure(err: unknown, file: string): CliError | null {
+  const code = (err as { code?: string }).code;
+
+  if (code === "ERR_UNKNOWN_FILE_EXTENSION" || code === "ERR_UNSUPPORTED_ESM_URL_SCHEME") {
+    return new CliError(
+      `This Node cannot load ${file} on its own.`,
+      "Run the CLI under a TypeScript loader, for example `node --import tsx node_modules/.bin/genui-guard test`, or point --config at compiled JavaScript. Node 22.18 and later load .ts files without a loader.",
+    );
+  }
+
+  // Node's own type stripping resolves a .ts file but not a TypeScript import
+  // specifier: an extensionless path, or the ".js" convention that means a
+  // ".ts" file. Both are ordinary in a TypeScript project and both land here,
+  // so the hint has to cover that as well as a module that is simply missing.
+  if (code === "ERR_MODULE_NOT_FOUND") {
+    return new CliError(
+      err instanceof Error ? err.message : `Something ${file} imports could not be found.`,
+      "If that import has no extension, or ends in .js and names a .ts file, Node cannot resolve it without a loader: run `node --import tsx node_modules/.bin/genui-guard ...`. If it is a package, it is missing from the dependencies of the file that imported it.",
+    );
+  }
+
+  return null;
 }
 
 export async function loadConfig(file: string): Promise<EvalConfig> {

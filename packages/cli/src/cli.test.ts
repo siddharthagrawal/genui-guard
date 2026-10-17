@@ -4,7 +4,13 @@ import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createRegistry } from "@genui-guard/core";
 import { check } from "./check.js";
-import { CliError, findConfig, inspectConfig, loadCases } from "./config.js";
+import {
+  CliError,
+  describeLoadFailure,
+  findConfig,
+  inspectConfig,
+  loadCases,
+} from "./config.js";
 import { main, parseArgs } from "./cli.js";
 import { renderComment, renderReport } from "./report.js";
 import { judge, runSuite } from "./run.js";
@@ -156,6 +162,49 @@ describe("finding a config", () => {
     } catch (err) {
       expect((err as CliError).hint).toContain("defineConfig");
     }
+  });
+});
+
+describe("loading a config the host Node cannot resolve", () => {
+  /**
+   * Node 22.18 and later strip types but do not resolve a TypeScript import
+   * specifier, so an extensionless import inside a .ts config fails with a bare
+   * resolution error and no way out of it. The hint has to name both causes.
+   */
+  it("explains a failed import rather than passing Node's error through", () => {
+    const err = Object.assign(new Error("Cannot find module './lib/guard'"), {
+      code: "ERR_MODULE_NOT_FOUND",
+    });
+    const described = describeLoadFailure(err, "genui-guard.config.ts");
+
+    expect(described?.message).toContain("./lib/guard");
+    expect(described?.hint).toContain("without a loader");
+  });
+
+  it("names the loader when this Node cannot read TypeScript at all", () => {
+    const err = Object.assign(new Error("Unknown file extension .ts"), {
+      code: "ERR_UNKNOWN_FILE_EXTENSION",
+    });
+
+    expect(describeLoadFailure(err, "genui-guard.config.ts")?.hint).toContain("--import tsx");
+  });
+
+  it("leaves an error it has nothing useful to say about alone", () => {
+    expect(describeLoadFailure(new TypeError("x is not a function"), "c.ts")).toBeNull();
+  });
+
+  /** The same path end to end, whichever of the two causes the host produces. */
+  it("exits 2 and prints a fix when the config cannot be loaded", async () => {
+    const out: string[] = [];
+    const errs: string[] = [];
+    const code = await main(
+      ["check", "--config", join(FIXTURES, "broken-import.config.mjs")],
+      quiet(out),
+      quiet(errs),
+    );
+
+    expect(code).toBe(2);
+    expect(errs.join("\n")).toContain("not-a-real-file");
   });
 });
 

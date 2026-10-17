@@ -180,9 +180,13 @@ function limit(value: number | undefined): string {
   return value === undefined ? "none set" : pct(value);
 }
 
-/** A suite that runs in 40ms should say so, rather than rounding itself to 0.0s. */
+/**
+ * A suite that runs in 40ms should say so, rather than rounding itself to 0.0s.
+ * Coarse on purpose below a second: the report is committed, and a file that
+ * changes by a millisecond on every run trains people to ignore its diff.
+ */
 function duration(ms: number): string {
-  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+  return ms < 1000 ? `${Math.round(ms / 10) * 10}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
 /** The pull request comment. Short, and leading with the same number. */

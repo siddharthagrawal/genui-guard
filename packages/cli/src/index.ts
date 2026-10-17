@@ -1,4 +1,12 @@
-export { defineConfig, CliError, findConfig, loadConfig, loadCases, inspectConfig } from "./config.js";
+export {
+  defineConfig,
+  CliError,
+  describeLoadFailure,
+  findConfig,
+  loadConfig,
+  loadCases,
+  inspectConfig,
+} from "./config.js";
 export type { Diagnostic, Diagnostics } from "./config.js";
 export { check } from "./check.js";
 export type { CheckResult } from "./check.js";
