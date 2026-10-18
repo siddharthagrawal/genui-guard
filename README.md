@@ -23,13 +23,16 @@ Bad data gets through even when every fare comes from a real API, because the mo
 ```jsonc
 // searchFlights result, loaded by your server
 { "fares": { "HA-2041": {
-  "fareId": "HA-2041", "airline": "Harbor Air", "price": 412, "stops": 1, "seatsLeft": 4
+  "fareId": "HA-2041", "airline": "Harbor Air", "price": 412, "stops": 1, "seatsLeft": 4,
+  "fareRules": { "refundable": false, "changeFee": 90, "bagsIncluded": 1 }
 } } }
 ```
 
 What happens next depends on which pattern your stack uses, and it is worth being precise because the risk is not universal.
 
 In the pattern genui-guard targets, the model emits a UI specification. It writes out a new `FlightCard` and fills in each property itself, putting the airline in one field and the price in another. Nothing forces what it types to match what it read. It can write `189` into the price field instead of `412`, label a one stop fare as nonstop, or add a free cancellation badge the fare never offered. Each of those is still a structurally valid `FlightCard`, so the catalog raises no objection. This is not a hypothetical. json-render's own generated prompt instructs the model to "include realistic sample data in state," and offers "for product lists: 3-5 items with names, prices, descriptions" as the example.
+
+Worth being precise about why that happens, because it changes where you put the fix. A model filling in a plausible badge or a fallback price is not malfunctioning; it is completing a layout, which is what it was trained to do and what its renderer's own prompt asked for. Sparse tool schemas and null fields leave gaps, and a model post-trained to be helpful fills gaps. Treating fabricated interface data as a side effect of helpfulness rather than as a defect is what moves the fix out of the prompt and into a check that does not depend on the model complying.
 
 In the other common pattern, used by the Vercel AI SDK's `streamUI`, the model only chooses a tool and supplies its typed input, and your own code fetches the data and passes it to the component. The data never passes through the model, so provenance is already solved there and the policies further down are what still apply.
 
@@ -42,11 +45,22 @@ The common defence in the first pattern is comparison. You let the model write w
   "props": {
     "airline": { "$state": "fares.HA-2041.airline" },  // resolves into host data (allowed)
     "price":   { "$state": "fares.HA-2041.price" },    // resolves into host data (allowed)
-    "stops":   0,                                      // model wrote a value into a bound prop (blocked)
-    "badges":  ["Refundable", "Free cancellation"]      // unsourced claim removed, the rest kept
+    "stops":   0,                                      // model-authored value in a bound prop
+    "badges":  ["Bag included", "Free cancellation"]    // one supported claim, one invented
   }
 }
 ```
+
+Those are the real values for `HA-2041` in the demo's data. Run that element through the guard and it produces two findings and one outcome:
+
+```
+block:  FlightCard.stops is a literal value written by the model, and it must
+        reference fares loaded by the host instead.
+repair: FlightCard.badges claimed "Free cancellation", which nothing in the
+        source data supports, so it was removed and the remaining claim kept.
+```
+
+The card does not render. Both findings are recorded, and because the strictest decision wins, the repair never gets to apply to this element: there is no card left to put a badge on. Correct the `stops` reference and the same element renders with `badges: ["Bag included"]`, which is the point of a repair being surgical. `"Bag included"` is supported by `bagsIncluded: 1` and survives, `"Free cancellation"` has no field behind it and is removed on its own, and clearing the whole property would have discarded a true badge, which is a different kind of wrong answer.
 
 `$state` is json-render's syntax for a property whose value is looked up from application state at render time rather than written into the component. Other catalogs spell it differently, and the general idea is a reference instead of a literal.
 
@@ -55,6 +69,24 @@ When the model writes a literal number into a bound property, that is a failure 
 A reference on its own is not enough, though, and this is the part that is easy to get wrong. In json-render, the model streams state alongside the elements that read it, so it can emit a reference to `fares.HA-2041.price` and then emit a state patch that puts `189` at exactly that path. The reference would resolve perfectly and still be a fabrication. What makes a bound property trustworthy is therefore not the syntax but the namespace. The guard owns the paths that back bound properties, populates them only from `recordToolResult`, rejects any model-authored state patch that writes into them, and resolves bound references against host state rather than against the merged result.
 
 With that in place a bound value can never be invented. It is either a reference that resolves into data your server loaded, or it is absent. Whether it resolves against the *right* record is a separate question, and the section on what genui-guard does not catch is honest about it.
+
+### Why not just pass the model an ID?
+
+The obvious objection to all of this is that `FlightCard` should take a single `fareId` and read the record itself, at which point there is nothing for a guard to verify. It is the right question, and the answer has three parts.
+
+The first is that it does not actually fix the problem here. In json-render the model streams state alongside the elements that read it, so a component resolving `state.fares["HA-2041"]` renders whatever was written to that path, and the model is one of the writers. An ID-only property narrows what the model can author about *presentation* while leaving the data itself model-reachable. What makes a bound value trustworthy is the guard owning the namespace, not the shape of the property.
+
+The second is that it assumes a bespoke component per tool. Teams that ship this at any scale hand the model generic primitives instead, a `DataCard`, a `ComparisonTable`, a `MetricStat`, which get composed across arbitrary tools. A generic card cannot look up a `fareId`, because it has never heard of fares; it has to receive a title and a metric and a set of badges, which puts us back where we started.
+
+The third is that the interesting components are hybrids. Even a bespoke `FlightCard` mixes strict facts, the price and the stop count, with model-synthesised presentation, the badges and the sentence explaining why this option suits the request. The facts want binding and the prose wants claim checking, and an ID-shaped property has nothing to say about the second half.
+
+Where passing an ID *is* available, it is a good idea and genui-guard is cheap insurance on top of it rather than a replacement for it.
+
+### One component, one record
+
+Binding each property separately opens a failure that comparison would never notice: every reference resolves, and they resolve to different records. A card showing Harbor Air's name beside a cheaper flight's price is wrong in a way no individual property is wrong.
+
+That is what `key: "fareId"` is for. Every bound property on one component instance must resolve to the same record, not merely to some record, and a component whose bound properties straddle two of them is blocked with a reason naming both. This was not in the original design; it came out of asking what a confused model gets wrong about a list, and the answer is position.
 
 Comparison forces a bad choice whenever the model's number is wrong. If you rewrite the card to the correct price, it contradicts the model's own surrounding prose, which genui-guard never sees. If you hide the card, the user gets no explanation. If you show it, you are back to the original problem. Requiring a reference removes the choice entirely.
 
@@ -70,8 +102,9 @@ Every decision below is recorded in a trace.
 |---|---|---|
 | Model-authored data | Card hardcodes `price: 189`, the fare API says `412` | Block, repair available |
 | Model-authored source | A state patch writes `189` into a path backing a bound property | Block |
-| Wrong label | "Nonstop" shown on a flight with a layover | Block, repair available |
+| Wrong label | `stops: 0` written onto a flight with a layover | Block, repair available |
 | Unsourced claim | "Free cancellation" that no fare rule supports | Repair, that claim removed, supported ones kept |
+| Mixed records | One card with this airline's name and a cheaper flight's price | Block |
 | Unavailable item | A sold out hotel in the results | Block |
 | Unmet preference | A trip over the user's stated budget | Annotate |
 | Unpermitted component | A staff only refund override shown to a customer | Block |
@@ -79,6 +112,8 @@ Every decision below is recorded in a trace.
 | Unsafe URL | A `javascript:` scheme, or an unapproved image host | Repair, URL removed |
 | Spoofed input | A password or card field outside an approved component | Block |
 | Inaccessible markup | A hotel photo with no alt text | Repair, otherwise block |
+
+Read that table alongside the measured numbers further down rather than instead of them. The first two rows and the structural ones are what the mechanism guarantees. The claim row depends on a topic you configured matching the wording the model used, and the held-out suite puts a number on how often that fails: a badge reading "Nonstop" on a one-stop fare is not caught, because nothing told the checker that stop counts are a claim.
 
 ---
 
@@ -115,7 +150,11 @@ The guard runs on the server, between the model and the transport. I require thi
 
 Blocking is a tree edit rather than a filter. json-render streams the interface as a flat tree of elements that refer to each other by id. When the guard blocks an element, it removes that element and prunes its id from every parent that referred to it, so the renderer never receives a dangling reference. Blocking a container blocks everything inside it, and the trace records what was lost.
 
-Unverified data never flashes on screen. While a spec is still streaming, the guard holds bound properties until they are verified, so the user sees a placeholder rather than a brief flash of an unverified fare. If the tool result behind an element never arrives, the hold expires and the guard blocks the element.
+Unverified data never flashes on screen. An element whose source namespace has not been recorded yet is held on the server rather than forwarded, so the browser receives nothing to paint instead of a fare that corrects itself a moment later. The hold expires into a block rather than hanging.
+
+This only arises when the interface streams before or alongside its tool results, which happens in optimistic and multi-agent setups rather than in a plain tool-call loop, and in a plain loop there is simply nothing to hold. Retraction is handled the same way in both: when an element is blocked after its parent has already gone out, the guard emits a `drop` event downstream carrying the id and the reason, and the adapter prunes that id from `children` and from every named slot as it reassembles. The server does not buffer the subtree and it does not rewrite history; the renderer is told to remove something it was told about, which is the one honest option once bytes have left the building.
+
+The demo does not exercise the hold, because it records tool results before it streams, so there is nothing pending by the time elements arrive. The behaviour is covered in core's tests and the demonstration of it is the one phase 2 acceptance criterion still unticked in [docs/build-plan.md](docs/build-plan.md).
 
 The guard is deterministic and makes no network calls. It takes `zod` v4 as a peer dependency to match json-render, and it plugs into any transport as a standard `TransformStream`.
 
@@ -123,7 +162,7 @@ The guard is deterministic and makes no network calls. It takes `zod` v4 as a pe
 
 ## How to try it?
 
-The interesting behaviour only shows up when something goes wrong, so start with the demo :) It is a fictional travel search where an agent composes the results page.
+The interesting behaviour only shows up when something goes wrong, so start with the demo. It is a fictional travel search where an agent composes the results page.
 
 ```bash
 git clone https://github.com/siddharthagrawal/genui-guard && cd genui-guard
@@ -154,24 +193,39 @@ pnpm add -D @genui-guard/cli                   # genui-guard check and test
 
 You reuse your json-render catalog and tell genui-guard only the extra things it needs to know, which are the properties that are bound and the policies to enforce.
 
+This is [examples/quickstart.ts](examples/quickstart.ts), pasted rather than retyped. It is compiled against the packages' source on every run of `pnpm typecheck`, so a copy-paste that fails to build is a failing test rather than something you find out about.
+
 ```ts
-import { createGuard, policies as p } from "genui-guard";
-import { fromJsonRender } from "genui-guard/json-render";
-import { catalog } from "./catalog";   // your existing json-render catalog
+import { createGuard, policies as p, type GuardEvent } from "@genui-guard/core";
+import { fromJsonRender } from "@genui-guard/json-render";
+import { catalog } from "./catalog"; // your existing json-render catalog
+
+declare const turnId: string;
+declare const session: { role: string };
+declare const budget: number;
+declare const fares: { fareId: string; price: number; seatsLeft: number }[];
+declare const specStream: ReadableStream<GuardEvent>;
 
 export const guard = createGuard({
   registry: fromJsonRender(catalog, {
     FlightCard: {
-      entity: "fare",                        // backed by searchFlights results
-      key: "fareId",
-      bound: ["airline", "price", "stops"],  // must reference verified fare data
+      entity: "fares", // backed by searchFlights results
+      key: "fareId", // identifies one record, and ties every bound prop to the same one
+      bound: ["airline", "price", "stops"], // must reference verified fare data
     },
   }),
   policies: [
-    p.requireBinding(),                       // on by default
-    p.dropUnsourcedClaims({ topics: ["free cancellation", "refundable", "bag included"] }),
-    p.excludeWhere("fare", (f) => f.seatsLeft === 0),
-    p.annotateWhere("fare", (f, ctx) => f.price > ctx.budget, "Over your stated budget"),
+    p.requireBinding(), // on by default
+    p.dropUnsourcedClaims({
+      topics: ["free cancellation", "refundable", "bag included"],
+      supportedBy: ["fareRules"], // nested objects that can support a claim
+    }),
+    p.excludeWhere("fares", (fare) => fare.seatsLeft === 0),
+    p.annotateWhere(
+      "fares",
+      (fare, ctx) => Number(fare.price) > Number(ctx.budget ?? Infinity),
+      "Over your stated budget",
+    ),
     p.requireRole(["RefundOverride"], "support_agent"),
     p.confirmActions(["book"]),
     p.safeUrls({ imageHosts: ["img.travel-demo.test"] }),
@@ -179,12 +233,22 @@ export const guard = createGuard({
   ],
 });
 
-// source of truth for this turn
-guard.recordToolResult({ turnId, toolName: "searchFlights", data: fares });
+// Source of truth for this turn. `entity` reserves the state namespace the
+// guard owns, and `key` is required for an array so records are addressed by
+// identity rather than by position.
+guard.recordToolResult({
+  turnId,
+  toolName: "searchFlights",
+  entity: "fares",
+  key: "fareId",
+  data: fares,
+});
 
-// any transport, whether SSE, the AI SDK, AG-UI or WebSockets
-const safe = specStream.pipeThrough(guard.stream({ turnId, session, budget }));
+// Any transport, whether SSE, the AI SDK, AG-UI or WebSockets.
+export const safe = specStream.pipeThrough(guard.stream({ turnId, session, budget }));
 ```
+
+A claim topic is matched against the field names on the bound entity, with both sides reduced to crudely singularised word tokens, which is how `"bag included"` finds `bagsIncluded`. Support means the field affirms the claim rather than merely existing, so `2` bags counts and `0` does not. `supportedBy` names nested objects to look inside as well as the record's own fields, because fare rules usually live one level down.
 
 Removing genui-guard means deleting that single `pipeThrough` line. Your json-render setup is otherwise unchanged.
 
@@ -239,23 +303,30 @@ Detection is where the honest part lives.
 | **Comparisons**: "lowest fare today", when it is not | **0 of 4** | |
 | **Claims the source has no field for at all**: breakfast, a shuttle, wifi | **0 of 6** | |
 
-Nothing in the last four rows was caught, and that is the shape of the limitation rather than a bug to fix with better keywords. A deterministic checker matches topics, so "Refundable" on a non-refundable fare is caught and "Cancel any time for a full refund" on the same fare is not. The same rule that produces a 2% false-block rate produces a 0% detection rate on paraphrase, and the trade is the whole argument for a semantic check, which is the first item on [the roadmap](ROADMAP.md).
+Nothing in the last four rows was caught, and that is the shape of the limitation rather than a bug to fix with better keywords. `dropUnsourcedClaims` matches configured topics against the field names on the source record, so "Refundable" on a non-refundable fare is caught and "Cancel any time for a full refund" on the same fare is not. What it buys for that missed recall is precision: across 51 legitimate components it removed nothing true, which is why it is safe to leave switched on while the recall problem gets solved properly. A semantic check is the first item on [the roadmap](ROADMAP.md).
+
+The reason a semantic check is next rather than now is latency and determinism, and the shape it has to take follows from where each check can afford to sit. Everything today is tier one: structural, provenance, role, action and URL checks, deterministic and inline, adding no measurable time before first paint. A semantic check is tier two, and cannot go inline without putting a model call inside the stream. So it holds the free-text property while the card's shell renders, or it runs behind the stream and emits the same `drop` event the guard already uses when an element has to be withdrawn after the fact. The mechanism for revoking something already sent exists; what is missing is the judgement to put behind it.
+
+The two numbers come from different rules and it is worth not blurring them, because they fail in opposite directions. The false block is `requireBinding` refusing an expression in a bound property, which trades iteration ergonomics for provenance and costs 1 case in 51. The paraphrase gap is `dropUnsourcedClaims` matching lexically, which trades recall for precision and costs 18 cases in 18. One rule is too strict and the other is not strict enough, and no single adjustment improves both.
 
 Two further limits came out of the run and are worth stating because neither is visible from the code. Verification only covers the properties a host declares bound, so the demo, which binds airline, price and stops, does not catch a card showing one flight's price beside another flight's departure time. And accessibility rules only fire where the host asked for them, so the demo's unlabelled text input passes. Both are configuration rather than defects, and both are the kind of gap `genui-guard check` is for.
 
-Three of the numbers above moved because the suites found defects in code that 206 passing tests had not. Property validation against the host's schema was never wired in, a state key written as a JSON Pointer skipped the reserved-namespace screen completely, and the alternative-text repair could not read a bound name, so it withheld cards instead of repairing them. [docs/eval-protocol.md](docs/eval-protocol.md) records the method, including what may not be changed after the cases were written and the two corrections that were made.
+Three of the numbers above moved because the suites found defects in code that 206 passing tests had not. Property validation against the host's schema was never wired in, a state key written as a JSON Pointer skipped the reserved-namespace screen completely, and the alternative-text repair could not read a bound name, so it withheld cards instead of repairing them.
+
+To keep the deterministic rules from being overfitted to the cases that score them, [docs/eval-protocol.md](docs/eval-protocol.md) freezes the held-out suite before any rule is touched, and the suites run the demo's shipped configuration rather than a second copy that could be tuned quietly. It also logs the only two case corrections made afterwards, both of them fixture errors rather than results: one case used a role name the application does not have, and one asserted something a second case contradicted.
 
 ---
 
 ## How was this built?
 
-There are two tags rather than three. The first two phases landed in one commit, so no commit in this history shows the guard before the demo existed, and a `ch1-core` tag would check out the demo along with it. Checking out a tag shows the project as it was at that point.
+In the order the pieces arrived, with a tag at each point worth checking out.
 
-| Chapter | Tag | What it shows |
-|---|---|---|
-| The guard | no tag | A model authored fare blocked, an unsourced claim stripped, a sold out hotel removed from the tree, and a staff only button hidden, all in unit tests |
-| Travel search | `ch2-travel` | The guard and the adapter, plus agent composed flights and hotels rendered with json-render, chaos mode, and guardrails on and off |
-| Proof | `ch3-evals` | The `genui-guard` CLI, the two suites, a 2.0% false-block rate with the detection gap stated, and a pull request comment carrying the numbers |
+| Tag | What it shows |
+|---|---|
+| `ch2-travel` | The guard and the json-render adapter, and the travel demo built on them: agent-composed flights and hotels, chaos mode, and guardrails switching on and off against the same recorded turn |
+| `ch3-evals` | The `genui-guard` CLI, the two eval suites, a 2.0% false-block rate with the detection gap stated rather than smoothed, and a pull request comment carrying both numbers |
+
+The guard came first and the demo second, and both are inside the first tag. Building the demo early turned out to matter more than the order suggests: two of the most valuable bugs in the project were found by putting real fares through a real renderer, not by tests, and both had survived a fully passing suite.
 
 ---
 
@@ -273,4 +344,4 @@ Open an [issue](https://github.com/siddharthagrawal/genui-guard/issues) for anyt
 
 ---
 
-*All catalog data, brands, and product claims i have used in this repository are fictional :) MIT license.*
+*All catalog data, brands, and product claims used in this repository are fictional. MIT license.*

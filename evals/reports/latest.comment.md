@@ -6,4 +6,4 @@ Detection 51.3% on 76 held-out cases. Nothing caught in `claim-paraphrase`, `com
 
 Thresholds held.
 
-<sub>2026-10-17 · 127 cases · 20ms · full report in `evals/reports/latest.md` · method in `docs/eval-protocol.md`</sub>
+<sub>2026-10-18 · 127 cases · 20ms · full report in `evals/reports/latest.md` · method in `docs/eval-protocol.md`</sub>

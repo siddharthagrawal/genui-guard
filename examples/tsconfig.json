@@ -7,7 +7,8 @@
     // Resolve against source rather than dist, so the example cannot drift
     // from the real API without the typecheck noticing.
     "paths": {
-      "@genui-guard/core": ["../packages/core/src/index.ts"]
+      "@genui-guard/core": ["../packages/core/src/index.ts"],
+      "@genui-guard/json-render": ["../packages/json-render/src/index.ts"]
     }
   },
   "include": ["**/*.ts"]
