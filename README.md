@@ -70,6 +70,10 @@ A reference on its own is not enough, though, and this is the part that is easy 
 
 With that in place a bound value can never be invented. It is either a reference that resolves into data your server loaded, or it is absent. Whether it resolves against the *right* record is a separate question, and the section on what genui-guard does not catch is honest about it.
 
+Comparison forces a bad choice whenever the model transcribes the wrong number into a property. Rewriting the card to the correct price contradicts the model's own surrounding prose, which genui-guard never sees. Hiding the card leaves the user an unexplained gap. Showing it is the original problem. Requiring a reference removes the question rather than answering it, because a bound value is either the host's or it is absent: there is never a wrong number to adjudicate.
+
+Value comparison stays available for teams whose models already write literal properties, and [docs/concepts.md](docs/concepts.md) explains that trade-off.
+
 ### Why not just pass the model an ID?
 
 The obvious objection to all of this is that `FlightCard` should take a single `fareId` and read the record itself, at which point there is nothing for a guard to verify. It is the right question, and the answer has three parts.
@@ -87,10 +91,6 @@ Where passing an ID *is* available, it is a good idea and genui-guard is cheap i
 Binding each property separately opens a failure that comparison would never notice: every reference resolves, and they resolve to different records. A card showing Harbor Air's name beside a cheaper flight's price is wrong in a way no individual property is wrong.
 
 That is what `key: "fareId"` is for. Every bound property on one component instance must resolve to the same record, not merely to some record, and a component whose bound properties straddle two of them is blocked with a reason naming both. This was not in the original design; it came out of asking what a confused model gets wrong about a list, and the answer is position.
-
-Comparison forces a bad choice whenever the model's number is wrong. If you rewrite the card to the correct price, it contradicts the model's own surrounding prose, which genui-guard never sees. If you hide the card, the user gets no explanation. If you show it, you are back to the original problem. Requiring a reference removes the choice entirely.
-
-Value comparison stays available for teams whose models already write literal properties, and [docs/concepts.md](docs/concepts.md) explains that trade-off.
 
 ---
 
@@ -123,6 +123,8 @@ The guard verifies that a component's properties are faithful to the entity the 
 
 Claim checks look for particular words, so a refund promise phrased as being able to get your money back whenever you like carries no vocabulary the rules recognise. That is measured rather than papered over: the held-out suite catches 0 of 18 paraphrased claims, and a semantic check is the first item on the roadmap.
 
+Only the interface is checked, not the sentences around it. The guard sees the specification the model emitted, so a correct card can sit directly beneath a chat message promising a refund that no fare offers, and nothing here will notice. That is worth saying plainly given this README opens with a case about a chatbot's prose: genui-guard narrows what a confused model can render, and the text channel needs its own answer.
+
 Accessibility coverage is static only. Alt text, labels and heading structure are all visible in the specification, so the guard can check them. Contrast, focus order and ARIA correctness need the rendered DOM, which a server-side guard never sees, so those belong to a different layer.
 
 ---
@@ -154,7 +156,7 @@ Unverified data never flashes on screen. An element whose source namespace has n
 
 This only arises when the interface streams before or alongside its tool results, which happens in optimistic and multi-agent setups rather than in a plain tool-call loop, and in a plain loop there is simply nothing to hold. Retraction is handled the same way in both: when an element is blocked after its parent has already gone out, the guard emits a `drop` event downstream carrying the id and the reason, and the adapter prunes that id from `children` and from every named slot as it reassembles. The server does not buffer the subtree and it does not rewrite history; the renderer is told to remove something it was told about, which is the one honest option once bytes have left the building.
 
-The demo does not exercise the hold, because it records tool results before it streams, so there is nothing pending by the time elements arrive. The behaviour is covered in core's tests and the demonstration of it is the one phase 2 acceptance criterion still unticked in [docs/build-plan.md](docs/build-plan.md).
+The demo does not exercise the hold, because it records tool results before it streams, so nothing is pending by the time elements arrive. The behaviour is covered in `@genui-guard/core`'s tests; showing it on screen needs a deliberately slow tool, which the demo does not have yet.
 
 The guard is deterministic and makes no network calls. It takes `zod` v4 as a peer dependency to match json-render, and it plugs into any transport as a standard `TransformStream`.
 
@@ -171,7 +173,7 @@ pnpm i && pnpm --filter travel dev    # no API key needed
 # http://localhost:3000/?dev  with the developer panel open
 ```
 
-The layout is deliberate. Chat sits on the left, the agent-composed results in the centre, and genui-guard lives in a separate dark developer panel on the right that opens on demand. The default view is the product, with no sign that a guard exists, because that is what a user of such a travel app would see. Open the developer panel on right and you get a switch for each of eight failures, and each one reports the decision it produced in the guard's own words, so you can read cause and effect from one switch rather than diffing two pages.
+The layout is deliberate. Chat sits on the left, the agent-composed results in the centre, and genui-guard lives in a separate dark developer panel on the right that opens on demand. The default view is the product, with no sign that a guard exists, because that is what a user of such a travel app would see. Open that panel and you get a switch for each of eight failures, and each one reports the decision it produced in the guard's own words, so you can read cause and effect from one switch rather than diffing two pages.
 
 There are three run modes. `replay` uses recorded output and spends no tokens. `chaos` rewrites that output with the failures you select. `live` calls a real model, needs an `ANTHROPIC_API_KEY`, and injects nothing at all: json-render's generated prompt instructs the model to "include realistic sample data in state", so a model following its renderer's own instructions invents fares without being asked to. Without a key, live mode is visibly disabled and the other two are unaffected.
 
