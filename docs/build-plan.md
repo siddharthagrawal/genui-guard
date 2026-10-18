@@ -1,6 +1,6 @@
 # Build plan
 
-There are three phases, and nothing moves forward until the acceptance criteria pass. Two tags came out of them rather than three: phases 1 and 2 both landed in the initial commit, so `ch2-travel` marks the end of the second and there is no honest commit to hang `ch1-core` on. This document is the working spec, so it is deliberately more prescriptive than the rest of `docs/`, and the parts that are genuinely undecided say so.
+There are three phases, and nothing moves forward until the acceptance criteria pass. They are not tagged separately: phases 1 and 2 both landed in the initial commit, and the one tag in this repository is `v0.1.0`, the published release. This document is the working spec, so it is deliberately more prescriptive than the rest of `docs/`, and the parts that are genuinely undecided say so.
 
 ## Repository shape
 
@@ -115,7 +115,7 @@ Every `PolicyResult.reason` is one plain sentence a developer can act on, for ex
 
 ---
 
-## Phase 1, the guard. No tag of its own
+## Phase 1, the guard
 
 Complete as of 14 October 2026. 137 tests, 96.9% statements and 87.3% branches on core.
 
@@ -136,7 +136,7 @@ Complete as of 14 October 2026. 137 tests, 96.9% statements and 87.3% branches o
 
 Three things came out differently from the plan. `GuardEvent` gained a `drop` kind, because blocking can happen after a parent has already streamed and the renderer needs telling. `ToolResult` gained an optional `key`, needed to address records in an array by identity rather than position, since position is exactly what a model gets wrong. And provenance gained a coherence check that blocks a component whose bound props resolve to different records, which catches the transposition failure and was not in the plan at all.
 
-## Phase 2, travel search. Tag `ch2-travel`, which covers phase 1 as well
+## Phase 2, travel search
 
 Build `packages/json-render`, `packages/react`, and `apps/travel`. Check json-render's current docs before starting, since the version here is pre-1.0.
 
@@ -156,7 +156,7 @@ Chaos mode injects, at minimum: a literal price in a bound prop, a model state p
 
 The layout changed during this phase. Chat sits on the left, the agent-composed results in the centre, and the developer panel is a separate dark surface on the right that opens on demand, so the default view is the product and the guardrails are opt-in. Live mode was added and turned out to need no chaos injection: json-render's generated prompt instructs the model to "include realistic sample data in state", so a model following its renderer's own instructions invents fares without being asked to.
 
-## Phase 3, proof. Tag `ch3-evals`
+## Phase 3, proof
 
 Build `packages/cli`, the two suites, and the GitHub Action.
 

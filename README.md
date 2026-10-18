@@ -319,14 +319,13 @@ To keep the deterministic rules from being overfitted to the cases that score th
 
 ## How was this built?
 
-In the order the pieces arrived, with a tag at each point worth checking out.
+In three passes, and the order turned out to matter more than I expected.
 
-| Tag | What it shows |
-|---|---|
-| `ch2-travel` | The guard and the json-render adapter, and the travel demo built on them: agent-composed flights and hotels, chaos mode, and guardrails switching on and off against the same recorded turn |
-| `ch3-evals` | The `genui-guard` CLI, the two eval suites, a 2.0% false-block rate with the detection gap stated rather than smoothed, and a pull request comment carrying both numbers |
+The guard came first: provenance, the policy set, the five outcomes, the trace. Then the travel demo, built on the real json-render renderer rather than a mock, which is where two of the project's most valuable bugs surfaced. A legitimate "Bag included" badge was being stripped because the claim topic is prose and the field is `bagsIncluded`, and a fabricated badge inside an array was receiving no checking at all because the policy only inspected strings. Both had survived a fully passing test suite. Putting real fares through a real renderer found in an afternoon what unit tests had not found in a week.
 
-The guard came first and the demo second, and both are inside the first tag. Building the demo early turned out to matter more than the order suggests: two of the most valuable bugs in the project were found by putting real fares through a real renderer, not by tests, and both had survived a fully passing suite.
+The evals came last and did the same thing one level up. Writing the held-out cases before reading the claim policy's implementation surfaced three more defects in shipped code: property validation against the host's schema was never wired in, a state key written as a JSON Pointer bypassed the reserved-namespace screen entirely, and the alternative-text repair could not read a bound value, so it withheld cards instead of repairing them. The pattern across all five is the same, and it is the one thing I would take to the next project: the code checked one representation of a thing that arrives in several.
+
+`v0.1.0` is the published release, and the full working spec with every acceptance criterion is in [docs/build-plan.md](docs/build-plan.md), including the one still unmet.
 
 ---
 
