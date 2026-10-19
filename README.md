@@ -185,7 +185,7 @@ genui-guard works with the catalog you already have, with `@json-render/core` su
 
 Install it alongside your existing setup.
 
-Publication was gated on the eval suites, so that the false block rate above is a measured number rather than a promise. All three packages are on npm at `0.1.0`.
+Publication was gated on the eval suites, so that the false block rate above is a measured number rather than a promise. All three packages are on npm.
 
 ```bash
 pnpm add @genui-guard/core zod                 # the guard

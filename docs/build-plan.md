@@ -184,7 +184,7 @@ The two false-block rates are reported separately. A withheld element and an ele
 
 ## How do the packages get published?
 
-Published on 17 October 2026, all three at `0.1.0`: core, the json-render adapter, and the CLI. The command is `pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`; `evals` is private and matches the filter, so pnpm skips it.
+Published on 17 October 2026, all three at `0.1.0`: core, the json-render adapter, and the CLI. The adapter went to `0.1.1` the next day, because its README claimed it called `catalog.validate()` and json-render's resolvers, which the shipped code never did. A tarball is immutable, so a wrong sentence in a published README costs a version. The command is `pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`; `evals` is private and matches the filter, so pnpm skips it.
 
 Four things about that first publish are worth not rediscovering.
 
