@@ -22,7 +22,8 @@ These are the claims the product makes. Breaking one is a bug even if tests pass
 - TypeScript strict. No `any` without a comment saying why.
 - `zod` v4 as a **peer** dependency, matching json-render. It is the only runtime dependency of core.
 - **Core must not import or reference json-render types.** Core speaks its own neutral element and event types. Renderer specifics live in the adapter. This is what makes the layer claim provable.
-- **Delegate, do not reimplement.** Contract validation calls `catalog.validate()`. Expression resolution calls `resolveElementProps()` / `resolvePropValue()`. Structural repair calls `autoFixSpec()`. Trace viewing uses `@json-render/devtools`. If json-render already does it, call theirs.
+- **Delegate, do not reimplement.** Structural repair calls `autoFixSpec()`. Trace viewing uses `@json-render/devtools`. If json-render already does it, call theirs.
+- **Two exceptions to that, both deliberate, both because the guard works per element on a stream.** Property validation does not call `catalog.validate()`, which validates a whole spec; it runs the catalog's own zod schemas, which `fromJsonRender` hands to core, so the rules still come from the host's definitions. And expression *resolution* is left to json-render at render time: the adapter only classifies which of the eight property forms was used, since that is what decides whether a bound property can be attributed to a record. The guard never evaluates a template, which is why it refuses one in a bound prop. Keep both README files honest about this; an earlier version of the adapter's README claimed the delegation that does not happen.
 - Every thrown error uses a code from `packages/core/src/errors.ts` and carries a message and a fix hint. There is a test that iterates the catalog and asserts both.
 - Vitest everywhere. Run `pnpm test` before declaring anything done.
 - Keep the public surface small. Ask before adding an exported function.

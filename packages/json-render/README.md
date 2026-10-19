@@ -16,7 +16,9 @@ Four jobs, none of which requires changing your json-render setup.
 
 **Expresses gates in json-render's own terms.** A gated action gets json-render's `confirm` field, so its existing `ConfirmDialog` and action layer handle the confirmation. No second mechanism.
 
-It deliberately does not reimplement what json-render already does. Contract validation calls `catalog.validate()`, and expression resolution uses its resolvers.
+It deliberately does not reimplement what json-render already does, and it is worth being exact about where that holds. Property validation runs against the zod schemas in your catalog, handed to the guard by `fromJsonRender`, so the rules come from your definitions rather than from a second description of them. Expression *resolution* stays with json-render, which does it at render time; the adapter only classifies which of the eight forms a property used, because that is what decides whether a bound property is a reference the guard can attribute to a record. The guard never evaluates a template or a computed value, which is exactly why it refuses them in bound properties.
+
+This package imports nothing from `@json-render/core` at runtime. It reads the catalog structurally and talks to the guard in the guard's own types, which is what keeps a json-render upgrade a contained problem. The contract tests do import the real package, so an upgrade that changes a wire format fails there.
 
 ## Install
 
@@ -52,6 +54,6 @@ For a live model streaming patches rather than a finished spec, use `patchesToEv
 
 json-render supports eight property expression forms. Only `$state` and `$bindState` are direct references to a path, and those are the only ones a bound property may use. Templates, computed values and iteration scopes become `expr`, which the guard blocks in a bound property, because a template can interpolate a model-written fragment that cannot be attributed to a source.
 
-That is strict, and whether it is too strict is an open question the eval suites are meant to answer.
+That is strict, and the eval suites have now priced it. Across 51 legitimate components it is the only false block, 1 of 51, and the case it fires on is json-render's own `repeat` with `$item` properties, which is ordinary usage rather than an edge case. Templates and computed values on properties that are *not* bound pass untouched. So the remaining question is narrower than it was: whether `$item` inside a `repeat` over a reserved namespace can be attributed to a record, which it probably can, since the collection being iterated is the host's.
 
 ## MIT
