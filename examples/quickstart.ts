@@ -28,6 +28,14 @@ export const guard = createGuard({
       key: "fareId", // identifies one record, and ties every bound prop to the same one
       bound: ["airline", "price", "stops"], // must reference verified fare data
     },
+    HotelCard: {
+      entity: "hotels",
+      key: "hotelId",
+      bound: ["name", "nightly"],
+      // Accessibility is registry-level rather than a policy, because what
+      // needs alt text is a fact about the component, not about this turn.
+      a11y: { requireAlt: ["imageAlt"] },
+    },
   }),
   policies: [
     p.requireBinding(), // on by default
@@ -45,6 +53,7 @@ export const guard = createGuard({
     p.confirmActions(["book"]),
     p.safeUrls({ imageHosts: ["img.travel-demo.test"] }),
     p.restrictInputs({ allow: ["PaymentForm"] }),
+    p.maskFields(["loyaltyId"]), // all but the last four characters
   ],
 });
 

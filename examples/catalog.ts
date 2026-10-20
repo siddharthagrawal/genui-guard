@@ -6,11 +6,12 @@
  * the adapter against the real `@json-render/core`.
  */
 export const catalog = {
-  componentNames: ["Stack", "FlightCard", "RefundOverride", "PaymentForm"],
+  componentNames: ["Stack", "FlightCard", "HotelCard", "RefundOverride", "PaymentForm"],
   data: {
     components: {
       Stack: { description: "A vertical group" },
       FlightCard: { description: "One flight option with its fare" },
+      HotelCard: { description: "One hotel option with its nightly rate" },
       RefundOverride: { description: "Staff only. Overrides a fare's refund rules" },
       PaymentForm: { description: "Approved host component for payment fields" },
     },

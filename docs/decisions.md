@@ -120,6 +120,8 @@ While surveying the ecosystem I found that json-render already publishes a devto
 
 I dropped it, and decisions will surface through the existing devtools plus a trace drawer in the demonstration. The loss is that inspection now depends on the renderer, so a host using a different catalog gets a worse experience until I do something about it. That seems like the right thing to be behind on.
 
+One correction to this entry, made after the fact. The devtools half never happened: nothing in this repository depends on `@json-render/devtools`, and the demonstration's panel is its own. So the position is stronger than "we rely on theirs" and weaker than it sounded: the packages emit traces as data and ship no viewer, and the only viewer that exists is in the demo. The reasoning for not building a console still holds, but the sentence above described an integration that was an intention rather than a fact, and it was repeated as fact in the README until a reviewer went looking for the call.
+
 ---
 
 ## Why two eval suites, and why leave out the obvious number?
