@@ -1,5 +1,5 @@
 import type { GuardEvent, PropValue } from "@genui-guard/core";
-import { guardEvents, guardSpec } from "@genui-guard/json-render";
+import { guardEvents, guardSpec, type JsonRenderSpec } from "@genui-guard/json-render";
 import { keyed } from "../../../lib/data";
 import { buildTurn, type Chaos, type Injection, type QueryId } from "../../../lib/fixtures";
 import { buildGuard } from "../../../lib/guard";
@@ -25,7 +25,11 @@ export async function POST(request: Request): Promise<Response> {
   };
 
   const guardrails = body.guardrails !== false;
-  const budget = body.budget ?? 800;
+  // $600 against this dataset annotates exactly one of the four fares shown,
+  // and it is the refundable one, which is the case worth seeing: the option the
+  // traveller actually asked for is over their stated budget, so it renders with
+  // a note rather than disappearing.
+  const budget = body.budget ?? 600;
   const live = body.mode === "live";
 
   if (live) {
@@ -33,7 +37,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!status.available) {
       return Response.json({ error: status.reason, live: status }, { status: 409 });
     }
-    return handleLive(body.prompt ?? "A weekend in Lisbon under $800", guardrails, budget);
+    return handleLive(body.prompt ?? "A weekend in Lisbon under $600, refundable", guardrails, budget);
   }
 
   return handleReplay(
@@ -61,6 +65,7 @@ async function handleReplay(
       state: turn.spec.state ?? {},
       traces: [],
       dropped: [],
+      annotations: {},
       guardrails: false,
     });
   }
@@ -84,7 +89,7 @@ async function handleReplay(
   });
 
   // The one line a host adds. Deleting it is how a host removes genui-guard.
-  const { spec, dropped, traces } = await guardSpec(guard, turn.spec, {
+  const { spec, dropped, annotations, traces } = await guardSpec(guard, turn.spec, {
     turnId,
     session: { role: "customer" },
     budget,
@@ -92,7 +97,7 @@ async function handleReplay(
 
   return Response.json({
     ...common,
-    spec,
+    spec: attachAnnotations(spec, annotations),
     state: {
       ...(spec.state ?? {}),
       fares: keyed(turn.fares, "fareId"),
@@ -100,10 +105,41 @@ async function handleReplay(
     },
     traces,
     dropped,
+    // The guard reports which elements it flagged; deciding what that looks
+    // like on screen is this app's job, not the guard's.
+    annotations,
     removed: describeRemoved(dropped, turn.spec),
     outcomes: matchOutcomes(turn.injections, traces),
     guardrails: true,
   });
+}
+
+/**
+ * Puts the guard's notes onto the cards they describe.
+ *
+ * This is host code on purpose. The guard reports which elements it flagged and
+ * stops there, exactly as it does for the elements it withheld, because
+ * attaching a note means choosing a property to write into and this app is the
+ * only party that knows `note` is the right one. It writes only where the model
+ * left that property empty: overwriting the model's own sentence to make room
+ * for a warning about it would be its own small act of fabrication.
+ */
+function attachAnnotations(
+  spec: JsonRenderSpec,
+  annotations: Record<string, string[]>,
+): JsonRenderSpec {
+  if (Object.keys(annotations).length === 0) return spec;
+
+  const elements = { ...spec.elements };
+  for (const [id, notes] of Object.entries(annotations)) {
+    const element = elements[id];
+    if (!element || !("note" in element.props)) continue;
+    if (element.props.note) continue;
+
+    elements[id] = { ...element, props: { ...element.props, note: notes.join(" · ") } };
+  }
+
+  return { ...spec, elements };
 }
 
 /**
@@ -224,11 +260,12 @@ async function handleLive(
       state: { ...raw.state, ...hostState },
       traces: [],
       dropped: [],
+      annotations: {},
       guardrails: false,
     });
   }
 
-  const { spec, dropped, traces } = await guardEvents(guard, turn.events, {
+  const { spec, dropped, annotations, traces } = await guardEvents(guard, turn.events, {
     turnId,
     session: { role: "customer" },
     budget,
@@ -236,10 +273,11 @@ async function handleLive(
 
   return Response.json({
     ...common,
-    spec,
+    spec: attachAnnotations(spec, annotations),
     state: { ...(spec.state ?? {}), ...hostState },
     traces,
     dropped,
+    annotations,
     guardrails: true,
   });
 }

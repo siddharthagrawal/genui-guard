@@ -81,7 +81,7 @@ export type Turn = {
 };
 
 export const QUERIES = [
-  { id: "lisbon", label: "Weekend in Lisbon under $800, refundable" },
+  { id: "lisbon", label: "Weekend in Lisbon under $600, refundable" },
   { id: "jfk", label: "Nonstop from JFK instead, and somewhere quieter to stay" },
 ] as const;
 
@@ -233,7 +233,7 @@ export function buildTurn(id: QueryId, chaos: Chaos[] = []): Turn {
     reply:
       id === "jfk"
         ? `Nonstop only, leaving from JFK. I found ${fares.length} and sorted the stays by rating.`
-        : `Here are ${fares.length} options under $800 and ${shownHotels.length} places to stay.`,
+        : `Here are ${fares.length} options and ${shownHotels.length} places to stay.`,
     toolCalls: [
       {
         name: "searchFlights",

@@ -7,7 +7,7 @@ export {
   patchToEvent,
 } from "./patches.js";
 export type { JsonRenderPatch } from "./patches.js";
-export { guardSpec, guardEvents, gatedActionsFrom } from "./guard-spec.js";
+export { guardSpec, guardEvents, gatedActionsFrom, annotationsFrom } from "./guard-spec.js";
 export type { GuardedSpec } from "./guard-spec.js";
 export {
   applyConfirm,

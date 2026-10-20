@@ -78,6 +78,12 @@ Exceeding a stated budget is not a hallucination. The data is accurate, the comp
 
 Annotating instead keeps the information on screen and attached to the thing it describes. It forced me to add annotation as a fifth outcome, which is more surface area than I originally wanted, and I judged that worth it because the alternative was a default that punishes correct behaviour.
 
+Two corrections to this entry, both found by a reviewer reading the README against the code rather than by using it.
+
+The first is about where "attached to the thing it describes" happens. For a while it happened nowhere: the note was collected during merging, never applied, and never read, so configuring `annotateWhere` produced output identical to not configuring it. The fix was not to make the guard write the note into a property. Choosing which property is the host's knowledge, and overwriting a sentence the model wrote in order to warn about it would be its own small fabrication. So the guard reports annotations beside the spec, keyed by element id, exactly as it reports the ids it withheld, and the host attaches them. The demonstration does that in about twelve lines and writes only where the model left the property empty. The sentence above is now true of the product rather than of the library alone, which is the right division: the guard never authors interface copy, and it does not here either.
+
+The second is more embarrassing and worth recording for that reason. The demonstration's budget was $800 and no fare in the fictional dataset cost more than $798, so this outcome, the one this entry exists to argue for, never once fired on screen. It was configured, documented in the README's table, styled in the developer panel, and unreachable. The stated budget is now $600, which annotates exactly one of the four fares shown, and it is the refundable one, so the card the traveller actually asked for is the card that carries the note. That is a better demonstration than anything I would have constructed deliberately, and a browser test now fails if the outcome stops appearing.
+
 The broader principle this surfaced is that genui-guard should check whether the interface tells the truth, not whether the model satisfied the user's intent. Intent satisfaction is product logic, it belongs to the application, and policies that drift into it will produce confident wrong decisions.
 
 ---

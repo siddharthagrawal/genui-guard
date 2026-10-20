@@ -124,7 +124,12 @@ export type PolicyResult = {
    * reach the renderer under any value. Applied after `patch`.
    */
   removeProps?: string[];
-  /** For `annotate`: a note attached to the element, not a change to it. */
+  /**
+   * For `annotate`: a note about the element, not a change to it. The element
+   * renders as composed and the note travels in the trace, so the host decides
+   * whether and how to show it. `annotationsFrom` in the json-render adapter
+   * collects these by element id.
+   */
   note?: string;
   /** For `gate`: which action names now require confirmation. */
   gatedActions?: string[];

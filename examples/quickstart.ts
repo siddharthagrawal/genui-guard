@@ -80,7 +80,7 @@ declare const modelSpec: JsonRenderSpec;
 export async function guardAFinishedSpec() {
   // `spec` is safe to render. `dropped` is the ids that were withheld, and
   // `traces` is every decision including the allows.
-  const { spec, dropped, traces } = await guardSpec(guard, modelSpec, ctx);
+  const { spec, dropped, annotations, traces } = await guardSpec(guard, modelSpec, ctx);
   return { spec, dropped, traces };
 }
 

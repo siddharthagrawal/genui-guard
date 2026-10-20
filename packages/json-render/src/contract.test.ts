@@ -254,3 +254,75 @@ describe("repairs and gates round-trip into json-render's own shapes", () => {
     expect(resolved.airline).toBe("Harbor Air");
   });
 });
+
+/**
+ * An annotation is reported, not applied: the element renders as the model
+ * composed it and the note travels beside the spec, which is the same division
+ * of labour as `dropped`. The guard says what it found; the host decides what
+ * the interface does about it.
+ */
+describe("annotations travel beside the spec", () => {
+  function overBudgetGuard() {
+    const guard = createGuard({
+      registry: fromJsonRender(catalog, {
+        FlightCard: { entity: "fares", key: "fareId", bound: ["airline", "price", "stops"] },
+      }),
+      policies: [
+        p.requireBinding(),
+        p.annotateWhere(
+          "fares",
+          (fare, ctx) => Number(fare.price) > Number(ctx.budget ?? Infinity),
+          "Over your stated budget",
+        ),
+      ],
+    });
+    guard.recordToolResult({
+      turnId: "t1",
+      toolName: "searchFlights",
+      entity: "fares",
+      key: "fareId",
+      data: FARES,
+    });
+    return guard;
+  }
+
+  const tight: Ctx = { turnId: "t1", session: { role: "customer" }, budget: 100 };
+
+  it("keyed by element id, with the element untouched", async () => {
+    const { spec: out, annotations, dropped } = await guardSpec(
+      overBudgetGuard(),
+      spec(bound),
+      tight,
+    );
+
+    expect(annotations).toEqual({ card: ["Over your stated budget"] });
+    expect(dropped).toEqual([]);
+    // Reported, not applied: every prop is exactly as it arrived.
+    expect(out.elements.card?.props).toEqual(bound);
+  });
+
+  it("is empty when nothing was annotated", async () => {
+    const { annotations } = await guardSpec(overBudgetGuard(), spec(bound), {
+      ...tight,
+      budget: 10_000,
+    });
+
+    expect(annotations).toEqual({});
+  });
+
+  it("leaves out an element that was withheld, since there is nothing to annotate", async () => {
+    const { annotations, dropped } = await guardSpec(
+      overBudgetGuard(),
+      spec({ ...bound, price: 189 }),
+      tight,
+    );
+
+    expect(dropped).toContain("card");
+    expect(annotations.card).toBeUndefined();
+  });
+
+  it("does not disturb the guarded spec's validity", async () => {
+    const { spec: out } = await guardSpec(overBudgetGuard(), spec(bound), tight);
+    expect(validateSpec(out as never).valid).toBe(true);
+  });
+});

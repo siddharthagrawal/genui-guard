@@ -196,3 +196,24 @@ test("with every switch on, each row explains its own failure", async ({ page })
 
   await expect(literalPrice).toContainText(/\.price\b/);
 });
+
+/**
+ * The fifth outcome, which until now the demo never produced: no fare in the
+ * dataset exceeded the old $800 budget, so `annotateWhere` was configured,
+ * documented and never once fired on screen.
+ *
+ * The guard reports the note and this application attaches it, which is the
+ * division of labour the project argues for everywhere else: genui-guard says
+ * what it found and never writes interface copy of its own.
+ */
+test("an over-budget fare is flagged and still rendered", async ({ page }) => {
+  await page.goto("/");
+
+  // The refundable option is the one the traveller asked for, and the one over
+  // their stated budget, so it has to still be there.
+  await expect(page.getByText("Over your stated budget").first()).toBeVisible();
+  await expect(page.getByText("Harbor Air").first()).toBeVisible();
+
+  // Annotated, not withheld: nothing was removed from this page.
+  await expect(page.getByText(/removed before this page rendered/)).toHaveCount(0);
+});

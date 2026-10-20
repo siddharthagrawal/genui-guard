@@ -103,7 +103,7 @@ State events are checked separately and more simply. A patch writing into a rese
 requireBinding()                              // on by default
 dropUnsourcedClaims({ topics })               // keyword and regex on free-text props
 excludeWhere(entity, predicate)               // sold out, cancelled; blocks
-annotateWhere(entity, predicate, note)        // over budget; annotates
+annotateWhere(entity, predicate, note)        // over budget; annotates, reported not applied
 requireRole(components, role)
 confirmActions(names)                         // mutate actions become gated
 safeUrls({ imageHosts, linkHosts })           // on by default, https and mailto only
@@ -146,7 +146,7 @@ Tools are `searchFlights`, `searchHotels`, `getFareRules` and `book`, the last b
 
 Chaos mode injects, at minimum: a literal price in a bound prop, a model state patch overwriting a fare price, an unsourced free cancellation badge, a sold-out hotel in results, a one-stop flight labelled nonstop, an ungated Book, `RefundOverride` shown to a customer, and a hotel image from an unapproved host. The state-patch case is the one worth showing first, because it is the failure that looks most legitimate.
 
-- [x] "Weekend in Lisbon under $800, refundable" works in replay, chaos and live modes
+- [x] "Weekend in Lisbon under $600, refundable" works in replay, chaos and live modes
 - [x] In chaos mode the toggle visibly shows every injected failure getting through when off and caught when on
 - [x] Removing genui-guard is deleting one `pipeThrough` line, with the json-render setup otherwise unchanged. The demo uses json-render's own `Renderer` and `JSONUIProvider`, so there is a real setup to leave unchanged
 - [x] A Playwright smoke test passes, covering the user view, the developer panel, the chaos toggle and a gated booking
@@ -184,7 +184,9 @@ The two false-block rates are reported separately. A withheld element and an ele
 
 ## How do the packages get published?
 
-Published on 17 October 2026, all three at `0.1.0`: core, the json-render adapter, and the CLI. The adapter went to `0.1.1` the next day, because its README claimed it called `catalog.validate()` and json-render's resolvers, which the shipped code never did. A tarball is immutable, so a wrong sentence in a published README costs a version. The command is `pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`; `evals` is private and matches the filter, so pnpm skips it.
+First published on 17 October 2026, all three at `0.1.0`: core, the json-render adapter, and the CLI.
+
+Two releases followed, and the shape of them is worth recording. The adapter went to `0.1.1` within a day because its README claimed it called `catalog.validate()` and json-render's resolvers, which the shipped code never did: a tarball is immutable, so a wrong sentence in a published README costs a version. Then all three went to `0.2.0` once an outside developer's findings were fixed, and the thing to notice is that `core@0.1.0` sat on npm for three days still throwing raw TypeErrors at a malformed event, because the fixes were committed and not released. Publishing is a separate act from merging, and a fix nobody can install is not shipped. The command is `pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`; `evals` is private and matches the filter, so pnpm skips it.
 
 Four things about that first publish are worth not rediscovering.
 

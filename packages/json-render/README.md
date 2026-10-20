@@ -6,13 +6,15 @@ Research prototype, pre-1.0.
 
 ## What it does
 
-Four jobs, none of which requires changing your json-render setup.
+Five jobs, none of which requires changing your json-render setup.
 
 **Reuses your catalog.** `fromJsonRender(catalog, rules)` reads the component names and zod property schemas you already defined, and you add only what the guard needs on top: which properties are bound, what identifies a record, and what to render when something is blocked. A rule naming a component the catalog does not have is an error rather than a silent no-op.
 
 **Translates both wire formats.** A whole spec, and the JSONL RFC 6902 patches json-render asks the model to stream. Patches map onto guard events one for one, so nothing has to be buffered on the way *in*: `drainPatchBuffer` hands over events as lines complete.
 
 Coming back out there are two shapes, and only one of them is incremental. `guardSpec` and `guardEvents` both resolve once, returning a spec your renderer can draw, which means the turn is assembled before you send anything. For a genuinely incremental path you use `guard.stream()` directly and forward the guarded events yourself, including the `drop` events that retract an element after its parent has gone out. There is no `eventsToPatches` yet, so that last translation is currently yours to write. The demo takes the simpler route and assembles the turn, which is worth knowing before quoting its latency.
+
+**Reports what the host has to act on.** `guardSpec` and `guardEvents` return `dropped`, the ids the guard withheld, and `annotations`, the notes it attached to elements that still render, keyed by element id. Both are reported rather than drawn: the guard says what it found and never writes interface copy of its own. `annotationsFrom` and `gatedActionsFrom` derive them from the traces if you are assembling your own pipeline.
 
 **Puts the result back together.** Blocked elements are pruned from `children` *and* from every named slot, so the renderer never receives a dangling reference. Element fields the guard does not model, such as `visible`, `repeat` and `watch`, are preserved untouched.
 
@@ -47,7 +49,7 @@ const guard = createGuard({
 guard.recordToolResult({ turnId, toolName: "searchFlights", entity: "fares", key: "fareId", data: fares });
 
 // The one line you add. Deleting it is how you remove genui-guard.
-const { spec, dropped, traces } = await guardSpec(guard, modelSpec, { turnId, session });
+const { spec, dropped, annotations, traces } = await guardSpec(guard, modelSpec, { turnId, session });
 ```
 
 For a live model streaming patches rather than a finished spec, use `patchesToEvents` with `guardEvents`.

@@ -15,7 +15,17 @@ import {
 
 export type GuardedSpec = {
   spec: JsonRenderSpec;
+  /** Ids the guard withheld. Your renderer never sees them. */
   dropped: string[];
+  /**
+   * Notes the guard attached to elements that still render, by element id.
+   *
+   * Reported rather than applied, for the same reason `dropped` is reported
+   * rather than drawn: the guard says what it found and the host decides what
+   * the interface does about it. Writing the note into a property would mean
+   * choosing one, and overwriting whatever the model had put there.
+   */
+  annotations: Record<string, string[]>;
   traces: (TraceEntry | StateTraceEntry)[];
 };
 
@@ -49,7 +59,7 @@ export async function guardSpec(
   const traces = guard.traces(ctx.turnId).slice(before);
   const result = eventsToSpec(spec, out, gatedActionsFrom(traces));
 
-  return { ...result, traces };
+  return { ...result, annotations: annotationsFrom(traces), traces };
 }
 
 /**
@@ -68,6 +78,33 @@ export function gatedActionsFrom(
       .filter((r) => r.decision === "gate")
       .flatMap((r) => r.gatedActions ?? []);
     if (names.length > 0) out.set(entry.elementId, [...new Set(names)]);
+  }
+
+  return out;
+}
+
+/**
+ * Notes by element id, for the elements that survived.
+ *
+ * Derived from the traces exactly as `gatedActionsFrom` is, because an
+ * annotation is a thing the host needs to act on rather than a change to the
+ * spec. An element that was blocked is left out: there is nothing left to
+ * annotate, and the reason it went is in the traces already.
+ */
+export function annotationsFrom(
+  traces: (TraceEntry | StateTraceEntry)[],
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+
+  for (const entry of traces) {
+    if (!("results" in entry) || entry.after === null) continue;
+
+    const notes = entry.results
+      .filter((r) => r.decision === "annotate")
+      .map((r) => r.note)
+      .filter((note): note is string => typeof note === "string" && note.length > 0);
+
+    if (notes.length > 0) out[entry.elementId] = [...new Set(notes)];
   }
 
   return out;
@@ -114,7 +151,7 @@ export async function guardEvents(
   }
 
   const result = eventsToSpec(original, out, gated);
-  return { ...result, traces };
+  return { ...result, annotations: annotationsFrom(traces), traces };
 }
 
 /** Back to json-render's element shape, for the reassembly step. */

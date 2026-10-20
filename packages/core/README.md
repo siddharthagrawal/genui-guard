@@ -20,6 +20,8 @@ On top of that sit policies for the things bindings cannot express, covering uns
 
 Every element ends up allowed, annotated, repaired, gated or blocked, strictest outcome wins, and every decision including every allow is traced with a plain-language reason.
 
+An annotation is reported rather than applied. The note travels in the trace, so the element renders as the model composed it and the host decides whether and where to show the note; `annotationsFrom` in the json-render adapter collects them by element id. Writing the note into a property would mean the guard choosing which property and overwriting whatever the model had put there.
+
 ## Install
 
 ```bash

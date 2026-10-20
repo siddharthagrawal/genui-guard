@@ -34,6 +34,8 @@ The reasons to be cautious are that a catalog's enum properties already constrai
 
 Accessibility is the same shape of question. Static checks on alt text, labels and heading structure are in the first version, and anything needing the rendered DOM is not reachable from the server at all.
 
+One smaller thing sits in the queue for the same reason the second catalog does. The json-render adapter collects annotations and gated actions out of the traces for you, and a host on another renderer has to write those few lines itself. Both could move into core as shared helpers, and I would rather wait until a second adapter shows what shape they want than design a public function from a sample size of one. Nothing is blocked meanwhile: the traces are public and so is every field on them.
+
 The sixth is tracing that connects to the systems teams already run. Emitting decisions as spans alongside the rest of a request's telemetry is how this becomes reviewable during an incident rather than only during development, and it should be an optional import so that nobody pays for it who does not want it.
 
 ---

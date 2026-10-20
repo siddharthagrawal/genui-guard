@@ -63,8 +63,8 @@ export function Demo({ devOpen: devOpenInitial }: { devOpen: boolean }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
           livePrompt
-            ? { mode: "live", prompt: livePrompt, guardrails, budget: 800 }
-            : { query: id, guardrails, chaos, budget: 800 },
+            ? { mode: "live", prompt: livePrompt, guardrails, budget: 600 }
+            : { query: id, guardrails, chaos, budget: 600 },
         ),
       });
 

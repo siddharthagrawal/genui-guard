@@ -31,7 +31,8 @@ These are the claims the product makes. Breaking one is a bug even if tests pass
 - Vitest everywhere. Run `pnpm test` before declaring anything done.
 - There is no linter, and `pnpm lint` does not exist. It used to be advertised and always exited 1, because no workspace defined the script. `tsc` with these settings catches most of what one would. If a linter arrives, add it to every workspace at once rather than to the root alone.
 - Keep the public surface small. Ask before adding an exported function.
-- When a public API changes, update `docs/` and the README quickstart in the same commit.
+- **When behaviour or a public API changes, update every document that describes it, in the same commit.** Not just the README. Work the list: `README.md`, the affected package's `README.md`, `docs/concepts.md` for mechanism, `docs/decisions.md` for a decision or a correction to one, `docs/build-plan.md` for the surface and the acceptance criteria, `docs/prd.md` for the product claim, `docs/eval-protocol.md` if a family or criterion moves, `ROADMAP.md` for anything deferred, and this file for a rule or a trap. Grep for the old claim before assuming it lives in one place: the delegation sentence that was wrong was wrong in three files, and fixing two of them is how it survived.
+- **A correction to a settled decision goes in `docs/decisions.md` as a dated correction, not as a quiet edit.** The entry's value is the reasoning at the time plus what changed, and the log already has several.
 - Demo data is fictional. No real airlines, hotels or brands, and no real fare or policy claims. Harbor Air, not a real carrier.
 - json-render is pre-1.0 and pinned to an exact version. Check its current docs before using an API, and never widen the pin without a contract test.
 

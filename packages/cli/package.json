@@ -1,6 +1,6 @@
 {
   "name": "@genui-guard/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Validate a genui-guard config and run its eval suites. Reports the false-block rate first.",
   "license": "MIT",
   "type": "module",

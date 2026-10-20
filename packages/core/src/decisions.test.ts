@@ -90,7 +90,12 @@ describe("merging policy results", () => {
     }
   });
 
-  it("collects notes from annotations", () => {
+  /**
+   * An annotation does not change the element, so merging has nothing to apply:
+   * the decision carries, and the note travels in the trace for the host to
+   * surface. `annotationsFrom` in the json-render adapter collects them.
+   */
+  it("carries the annotate decision without touching the element", () => {
     const out = mergeResults(
       [
         r({ policy: "budget", decision: "annotate", note: "Over your stated budget" }),
@@ -100,7 +105,8 @@ describe("merging policy results", () => {
     );
 
     expect(out.final).toBe("annotate");
-    expect(out.notes).toEqual(["Over your stated budget"]);
+    expect(out.patch).toEqual({});
+    expect(out.removeProps).toEqual([]);
   });
 
   it("collects gated actions without duplicates", () => {

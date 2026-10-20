@@ -145,7 +145,6 @@ export function createGuard(config: GuardConfig): Guard {
         final: "block" as const,
         patch: {},
         removeProps: [],
-        notes: [],
         gatedActions: [],
       };
     }

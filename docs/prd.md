@@ -56,7 +56,7 @@ That framing beats comparing values, because comparison leaves you with a decisi
 
 On top of provenance sit the checks that bindings cannot express, and these cover most of the remaining risk in practice. Free text claims like free cancellation have to be supported by the entity's own rules. Items that are unavailable should not appear in results. Controls meant for staff should not render for customers. Actions that move money or change a booking should need a confirmation rather than firing on one click. Links and image sources should use approved schemes and hosts. Credential and payment inputs should only appear inside components the host approved. Images need alt text.
 
-Each element ends up allowed, annotated, repaired, gated, or blocked, and every outcome is recorded with a reason a developer can read.
+Each element ends up allowed, annotated, repaired, gated, or blocked, and every outcome is recorded with a reason a developer can read. Two of those five change the element, two change the tree or an action, and annotation changes neither: it is reported beside the result for the host to place, because the guard does not author interface copy of its own.
 
 ---
 

@@ -105,7 +105,7 @@ Every decision below is recorded in a trace.
 | Unsourced claim | "Free cancellation" that no fare rule supports | Repair, that claim removed, supported ones kept |
 | Mixed records | One card with this airline's name and a cheaper flight's price | Block |
 | Unavailable item | A sold out hotel in the results | Block |
-| Unmet preference | A trip over the user's stated budget | Annotate, which your app surfaces from the trace |
+| Unmet preference | A fare over the user's stated budget | Annotate, reported beside the spec for your app to place |
 | Unpermitted component | A staff only refund override shown to a customer | Block |
 | Unconfirmed action | `book` fires on a single click | Gate behind confirmation |
 | Unsafe URL | A `javascript:` scheme, or an unapproved image host | Repair, URL removed |
@@ -281,7 +281,7 @@ const ctx = { turnId, session, budget };
 // Then one of three, depending on what the model handed you.
 
 /** 1. A finished spec, which is what most hosts have. */
-const { spec, dropped, traces } = await guardSpec(guard, modelSpec, ctx);
+const { spec, dropped, annotations, traces } = await guardSpec(guard, modelSpec, ctx);
 
 /** 2. json-render's JSONL patches. Resolves once, with the turn assembled. */
 const streamed = await guardEvents(guard, patchesToEvents(jsonl), ctx);
@@ -308,7 +308,14 @@ Two of the five change the tree, two change a property, and one does neither, wh
 
 **Gate** sets json-render's own `confirm` field on the action, so its existing dialog and action layer ask before firing. There is no genui-guard component to mount and no prop to wire up. On a different renderer you read the gated action names off the trace and apply your own confirmation.
 
-**Annotate** is the one that needs saying plainly: it does not currently change the element at all. The note lands in the trace and nowhere else, so the card renders exactly as the model composed it and your application decides whether to show the note. That is less than the name suggests, and `docs/decisions.md` describes annotation as keeping the information attached to the thing it describes, which is the intent rather than today's behaviour. If you want an over-budget card to say so on screen, read the `annotate` results from the trace and pass the note into your own component. Attaching it automatically means the guard choosing which property to write into, which is an API decision rather than an oversight, and it is open.
+**Annotate** does not change the element either, and that is deliberate rather than unfinished. The note travels beside the spec, keyed by element id, in the same `annotations` field that sits next to `dropped`:
+
+```ts
+const { spec, dropped, annotations, traces } = await guardSpec(guard, modelSpec, ctx);
+// annotations => { "fare-HA-2088": ["Over your stated budget"] }
+```
+
+The reasoning is the same one that stops the guard filling a gap where a blocked card used to be: writing the note into a property means choosing which property, and overwriting whatever the model had put there. Your application knows which property is for this and the guard does not, so the guard reports and you attach. The travel demo does exactly that in about twelve lines of its own code, writing into its cards' `note` property only where the model left it empty, which is what puts "Over your stated budget" on screen there.
 
 **Allow** does nothing except emit a trace entry, which is the point: no silent changes, including no silent approvals.
 
