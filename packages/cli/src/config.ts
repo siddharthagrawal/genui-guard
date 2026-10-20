@@ -50,7 +50,12 @@ export function findConfig(cwd: string, explicit?: string): string {
 
   throw new CliError(
     `No genui-guard config found in ${cwd}.`,
-    `Create genui-guard.config.ts exporting defineConfig({ registry, run, suites }), or pass --config <path>. There is a worked example in examples/genui-guard.config.ts.`,
+    // Do not point at examples/genui-guard.config.ts here. That file is a
+    // *guard* config, exporting a guard rather than a default eval config, so
+    // following the pointer produced "does not export a config" next. It is
+    // also not in the published tarball, so for an npm consumer the path does
+    // not exist at all.
+    `Create genui-guard.config.ts with \`export default defineConfig({ registry, run, suites })\`, or pass --config <path>. The config shape, including the \`run\` adapter, is documented in this package's README, and there is a working one at evals/genui-guard.config.ts in the genui-guard repository.`,
   );
 }
 

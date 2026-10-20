@@ -6,6 +6,7 @@ import { checkProvenance } from "./provenance.js";
 import { lintRegistry } from "./registry.js";
 import { createTurnState, type TurnState } from "./state.js";
 import { createTree } from "./tree.js";
+import { assertElement, assertEvent } from "./validate.js";
 import type {
   CheckResult,
   Ctx,
@@ -52,6 +53,10 @@ export function createGuard(config: GuardConfig): Guard {
   };
 
   function checkElement(element: GuardElement, ctx: Ctx): CheckResult {
+    // A host programming error fails here with a code and a fix, rather than
+    // as a TypeError thrown from inside a published dist.
+    assertElement(element);
+
     const started = performance.now();
     const spec = config.registry.get(element.type);
     const state = stateFor(ctx.turnId);
@@ -276,6 +281,8 @@ export function createGuard(config: GuardConfig): Guard {
 
     return {
       transform(event, controller) {
+        assertEvent(event);
+
         if (event.kind === "root") {
           tree.setRoot(event.id);
           controller.enqueue(event);

@@ -170,12 +170,14 @@ The interesting behaviour only shows up when something goes wrong, so start with
 git clone https://github.com/siddharthagrawal/genui-guard && cd genui-guard
 pnpm i && pnpm --filter travel dev    # no API key needed
 # http://localhost:3000       the user's view
-# http://localhost:3000/?dev  with the developer panel open
+# http://localhost:3000/?dev  developer panel open, every failure injected
 ```
 
-The layout is deliberate. Chat sits on the left, the agent-composed results in the centre, and genui-guard lives in a separate dark developer panel on the right that opens on demand. The default view is the product, with no sign that a guard exists, because that is what a user of such a travel app would see. Open that panel and you get a switch for each of eight failures, and each one reports the decision it produced in the guard's own words, so you can read cause and effect from one switch rather than diffing two pages.
+The layout is deliberate. Chat sits on the left, the agent-composed results in the centre, and genui-guard lives in a separate dark developer panel on the right that opens on demand. The default view is the product, with no sign that a guard exists, because that is what a user of such a travel app would see. Open that panel and you get a switch for each of eight failures, and each one reports the decision it produced in the guard's own words, so you can read cause and effect from one switch rather than diffing two pages. `?dev` starts with all eight on, which is the fastest way to see the whole set; turn them off individually to isolate one.
 
-There are three run modes. `replay` uses recorded output and spends no tokens. `chaos` rewrites that output with the failures you select. `live` calls a real model, needs an `ANTHROPIC_API_KEY`, and injects nothing at all: json-render's generated prompt instructs the model to "include realistic sample data in state", so a model following its renderer's own instructions invents fares without being asked to. Without a key, live mode is visibly disabled and the other two are unaffected.
+The demo has browser tests, which are also the fastest way to see every behaviour at once: `pnpm --filter travel exec playwright install` once for the browsers, then `pnpm --filter travel test` runs ten of them against a dev server on port 3100. They cover the user view, the developer panel, the chaos toggles, a gated booking and a surgical repair.
+
+There are three run modes. `replay` uses recorded output and spends no tokens. `chaos` rewrites that output with the failures you select. `live` calls a real model and injects nothing at all. It needs an `ANTHROPIC_API_KEY` in `apps/travel/.env.local`, which is the app directory rather than the repository root, since that is where Next looks; copy `apps/travel/.env.example` to start, and set `GENUI_GUARD_MODEL` if you want a different model. The reason live mode matters is that json-render's generated prompt instructs the model to "include realistic sample data in state", so a model following its renderer's own instructions invents fares without being asked to. Without a key, live mode is visibly disabled and the other two are unaffected.
 
 genui-guard works with the catalog you already have, with `@json-render/core` supported first, and with any transport that streams the interface to the browser, whether SSE, the AI SDK, AG-UI, or WebSockets.
 
@@ -188,10 +190,12 @@ Install it alongside your existing setup.
 Publication was gated on the eval suites, so that the false block rate above is a measured number rather than a promise. All three packages are on npm.
 
 ```bash
-pnpm add @genui-guard/core zod                 # the guard
-pnpm add @genui-guard/json-render              # the adapter, if you use json-render
-pnpm add -D @genui-guard/cli                   # genui-guard check and test
+pnpm add @genui-guard/core zod                       # the guard
+pnpm add @genui-guard/json-render @json-render/core@0.21.0   # if you use json-render
+pnpm add -D @genui-guard/cli                         # genui-guard check and test
 ```
+
+`@json-render/core` is an exact-pinned peer dependency of the adapter, so it has to be installed alongside it. The pin is deliberate: json-render is pre-1.0, and an upgrade should fail loudly at the adapter rather than quietly in your interface.
 
 You reuse your json-render catalog and tell genui-guard only the extra things it needs to know, which are the properties that are bound and the policies to enforce.
 
@@ -199,13 +203,22 @@ This is [examples/quickstart.ts](examples/quickstart.ts), pasted rather than ret
 
 ```ts
 import { createGuard, policies as p, type GuardEvent } from "@genui-guard/core";
-import { fromJsonRender } from "@genui-guard/json-render";
+import {
+  fromJsonRender,
+  guardEvents,
+  guardSpec,
+  patchesToEvents,
+  type JsonRenderSpec,
+} from "@genui-guard/json-render";
 import { catalog } from "./catalog"; // your existing json-render catalog
 
+// What your application already has.
 declare const turnId: string;
 declare const session: { role: string };
 declare const budget: number;
 declare const fares: { fareId: string; price: number; seatsLeft: number }[];
+declare const modelSpec: JsonRenderSpec;
+declare const jsonl: string;
 declare const specStream: ReadableStream<GuardEvent>;
 
 export const guard = createGuard({
@@ -246,9 +259,23 @@ guard.recordToolResult({
   data: fares,
 });
 
-// Any transport, whether SSE, the AI SDK, AG-UI or WebSockets.
-export const safe = specStream.pipeThrough(guard.stream({ turnId, session, budget }));
+const ctx = { turnId, session, budget };
+
+// Then one of three, depending on what the model handed you.
+
+/** 1. A finished spec, which is what most hosts have. */
+const { spec, dropped, traces } = await guardSpec(guard, modelSpec, ctx);
+
+/** 2. json-render's JSONL patches, which is what a live model streams. */
+const streamed = await guardEvents(guard, patchesToEvents(jsonl), ctx);
+
+/** 3. Your own transport: classified events in, safe events out. */
+const safe = specStream.pipeThrough(guard.stream(ctx));
 ```
+
+Most integrations are the first one. `spec` is safe to render, `dropped` is the ids that were withheld so you can show a gap if you want to, and `traces` is every decision including the allows. The third is the only renderer-agnostic path, and it is the one that takes guard events rather than a spec: if you are building those by hand rather than through an adapter, each prop has to say where it came from, as `{ kind: "ref", path }`, `{ kind: "literal", value }` or `{ kind: "expr", raw }`. Passing a renderer's own `{ "$state": "..." }` notation straight through is rejected with a fix hint rather than guessed at.
+
+One notation detail worth knowing: the guard speaks dotted paths and json-render speaks JSON Pointer, so a `$state` written as `fares.HA-2041.price` on the way in comes back as `/fares/HA-2041/price` on the way out. json-render resolves both, and the translation lives in the adapter rather than in your code.
 
 A claim topic is matched against the field names on the bound entity, with both sides reduced to crudely singularised word tokens, which is how `"bag included"` finds `bagsIncluded`. Support means the field affirms the claim rather than merely existing, so `2` bags counts and `0` does not. `supportedBy` names nested objects to look inside as well as the record's own fields, because fare rules usually live one level down.
 
@@ -277,7 +304,7 @@ pnpm --filter @genui-guard/evals check   # validates the config and the registry
 pnpm --filter @genui-guard/evals test    # runs both suites, in about a fifth of a second
 ```
 
-Measured on 17 October 2026, over 51 legitimate components and 76 held-out failures. The full run is in [evals/reports/latest.md](evals/reports/latest.md), and the cases are in [evals/cases](evals/cases).
+Measured over 51 legitimate components and 76 held-out failures, first on 17 October 2026 and unchanged since. The committed report at [evals/reports/latest.md](evals/reports/latest.md) carries no date or timing, so running the suites yourself reproduces it byte for byte rather than producing a diff. The cases are in [evals/cases](evals/cases).
 
 | Measure | Rate | |
 |---|---|---|
@@ -327,7 +354,7 @@ The guard came first: provenance, the policy set, the five outcomes, the trace. 
 
 The evals came last and did the same thing one level up. Writing the held-out cases before reading the claim policy's implementation surfaced three more defects in shipped code: property validation against the host's schema was never wired in, a state key written as a JSON Pointer bypassed the reserved-namespace screen entirely, and the alternative-text repair could not read a bound value, so it withheld cards instead of repairing them. The pattern across all five is the same, and it is the one thing I would take to the next project: the code checked one representation of a thing that arrives in several.
 
-`v0.1.0` is the published release, and the full working spec with every acceptance criterion is in [docs/build-plan.md](docs/build-plan.md), including the one still unmet.
+`v0.1.0` tags the first release. Package versions move independently after that, so npm is the authority on what is current rather than this file. The full working spec, with every acceptance criterion, is in [docs/build-plan.md](docs/build-plan.md).
 
 ---
 

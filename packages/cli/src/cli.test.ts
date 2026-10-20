@@ -163,6 +163,22 @@ describe("finding a config", () => {
       expect((err as CliError).hint).toContain("defineConfig");
     }
   });
+
+  /**
+   * It used to point at examples/genui-guard.config.ts, which is a guard config
+   * rather than an eval config, so following the hint produced "does not export
+   * a config". That file is also not in the published tarball.
+   */
+  it("does not send the reader to a file this CLI rejects", () => {
+    try {
+      findConfig(FIXTURES);
+      expect.unreachable();
+    } catch (err) {
+      const { hint } = err as CliError;
+      expect(hint).not.toContain("examples/genui-guard.config.ts");
+      expect(hint).toContain("export default");
+    }
+  });
 });
 
 describe("loading a config the host Node cannot resolve", () => {
@@ -551,6 +567,11 @@ describe("the report", () => {
 
     const report = summarise([detection], { maxFalseBlockRate: 0.05 }, 1200);
     const markdown = renderReport(report, { date: "2026-10-17" });
+
+    // The committed report carries no date and no duration, so running the
+    // suites locally does not produce a diff. Both still appear in the comment.
+    expect(markdown).not.toContain("2026-10-17");
+    expect(markdown).not.toMatch(/\dms, no network/);
 
     const blocksAt = markdown.indexOf("False blocks");
     const detectionAt = markdown.indexOf("## Detection");

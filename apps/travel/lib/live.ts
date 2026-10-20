@@ -16,14 +16,18 @@ import type { ToolCall } from "./fixtures";
  * produces them.
  */
 
-const MODEL = "claude-opus-5";
+/**
+ * Overridable, so trying a different model does not mean editing source. The
+ * default is the one the recorded fixtures were captured against.
+ */
+const MODEL = process.env.GENUI_GUARD_MODEL ?? "claude-opus-5";
 
 export function liveStatus(): { available: boolean; reason?: string } {
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
       available: false,
       reason:
-        "Set ANTHROPIC_API_KEY to enable live mode. Get a key from console.anthropic.com. Replay and chaos modes need no key.",
+        "Set ANTHROPIC_API_KEY in apps/travel/.env.local to enable live mode. Next reads .env.local from the app directory, not the repository root. Copy apps/travel/.env.example to start. Replay and chaos modes need no key.",
     };
   }
   return { available: true };

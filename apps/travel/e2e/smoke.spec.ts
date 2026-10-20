@@ -173,3 +173,26 @@ test("airline marks and hotel photos render, and the guard can still remove one"
   await page.getByText("Unsafe URL").click();
   await expect(page.getByText("photo removed")).toHaveCount(1);
 });
+
+/**
+ * With everything injected at once, three failures land on the same fare card.
+ * The panel used to match a switch to a decision by element alone and take
+ * whichever finding came first, so "Wrong label" explained itself with the
+ * price's reason. Every test above flips one switch, which is exactly why none
+ * of them noticed.
+ */
+test("with every switch on, each row explains its own failure", async ({ page }) => {
+  await page.goto("/?dev");
+
+  const wrongLabel = page.getByTestId("outcome-wrongStops");
+  const literalPrice = page.getByTestId("outcome-literalPrice");
+
+  await expect(wrongLabel).toBeVisible();
+  await expect(literalPrice).toBeVisible();
+
+  // The row about the stop count must talk about stops, not about price.
+  await expect(wrongLabel).toContainText(/\.stops\b/);
+  await expect(wrongLabel).not.toContainText(/\.price\b/);
+
+  await expect(literalPrice).toContainText(/\.price\b/);
+});

@@ -16,8 +16,10 @@ export function renderReport(report: EvalReport, meta: { date: string }): string
 
   out.push("# Eval report");
   out.push("");
+  // No date and no timing in the committed report. It used to carry both, so
+  // every contributor who ran the suites got a diff that said nothing.
   out.push(
-    `${meta.date}. ${clean.length} clean cases, ${detection.length} held-out detection cases, ${duration(report.durationMs)}, no network.`,
+    `${clean.length} clean cases, ${detection.length} held-out detection cases, no network.`,
   );
   out.push("");
   out.push(

@@ -1,6 +1,7 @@
-import type { GuardEvent } from "@genui-guard/core";
+import { GuardError, type GuardEvent } from "@genui-guard/core";
 import { describe, expect, it } from "vitest";
 import { pathToPointer, pointerToPath } from "./paths.js";
+import { fromJsonRender } from "./registry.js";
 import { fromPropValue, toPropValue } from "./props.js";
 import {
   applyConfirm,
@@ -270,5 +271,32 @@ describe("state keys, however the model spells them", () => {
     const { spec: out } = eventsToSpec(spec, specToEvents(spec));
 
     expect(out.state).toEqual({ "/ui/tab": "flights" });
+  });
+});
+
+/**
+ * A malformed catalog used to throw a TypeError reading 'map' from inside
+ * dist, which told a developer nothing about what they had passed.
+ */
+describe("fromJsonRender on something that is not a catalog", () => {
+  it("fails with a code and names what arrived", () => {
+    try {
+      fromJsonRender({} as never);
+      expect.unreachable();
+    } catch (e) {
+      const err = e as GuardError;
+      expect(err.code).toBe("GUARD_E_MALFORMED_CATALOG");
+      expect(err.message).toContain("empty object");
+      expect(err.hint).toContain("defineCatalog");
+    }
+  });
+
+  it("names the keys it did find, so a wrong object is obvious", () => {
+    try {
+      fromJsonRender({ components: {} } as never);
+      expect.unreachable();
+    } catch (e) {
+      expect((e as GuardError).message).toContain("components");
+    }
   });
 });

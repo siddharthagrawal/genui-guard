@@ -4,17 +4,22 @@
  *
  * The `declare const` lines stand for what your application already has: the
  * turn's identifier, the session, the user's stated budget, the tool result you
- * loaded, and the stream of interface events coming back from the model.
+ * loaded, and whatever the model gave you back.
  */
 import { createGuard, policies as p, type GuardEvent } from "@genui-guard/core";
-import { fromJsonRender } from "@genui-guard/json-render";
+import {
+  fromJsonRender,
+  guardEvents,
+  guardSpec,
+  patchesToEvents,
+  type JsonRenderSpec,
+} from "@genui-guard/json-render";
 import { catalog } from "./catalog"; // your existing json-render catalog
 
 declare const turnId: string;
 declare const session: { role: string };
 declare const budget: number;
 declare const fares: { fareId: string; price: number; seatsLeft: number }[];
-declare const specStream: ReadableStream<GuardEvent>;
 
 export const guard = createGuard({
   registry: fromJsonRender(catalog, {
@@ -54,5 +59,34 @@ guard.recordToolResult({
   data: fares,
 });
 
-// Any transport, whether SSE, the AI SDK, AG-UI or WebSockets.
-export const safe = specStream.pipeThrough(guard.stream({ turnId, session, budget }));
+const ctx = { turnId, session, budget };
+
+// ---------------------------------------------------------------------------
+// Then one of three, depending on what the model handed you.
+// ---------------------------------------------------------------------------
+
+/** 1. A finished spec, which is what most hosts have. */
+declare const modelSpec: JsonRenderSpec;
+
+export async function guardAFinishedSpec() {
+  // `spec` is safe to render. `dropped` is the ids that were withheld, and
+  // `traces` is every decision including the allows.
+  const { spec, dropped, traces } = await guardSpec(guard, modelSpec, ctx);
+  return { spec, dropped, traces };
+}
+
+/** 2. json-render's JSONL patches, which is what a live model streams. */
+declare const jsonl: string;
+
+export async function guardStreamedPatches() {
+  return guardEvents(guard, patchesToEvents(jsonl), ctx);
+}
+
+/**
+ * 3. Your own transport. This is the lowest level and the only one that is
+ * renderer-agnostic: a stream of already-classified guard events in, a safe
+ * stream out. Deleting this one line is how you remove genui-guard.
+ */
+declare const specStream: ReadableStream<GuardEvent>;
+
+export const safe = specStream.pipeThrough(guard.stream(ctx));

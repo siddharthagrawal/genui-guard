@@ -142,7 +142,7 @@ export function DevPanel({
               const active = chaos.includes(c);
               const outcome = active ? outcomes[c] : undefined;
               return (
-                <li key={c}>
+                <li key={c} data-testid={`outcome-${c}`}>
                   <button
                     type="button"
                     onClick={() => toggle(c)}

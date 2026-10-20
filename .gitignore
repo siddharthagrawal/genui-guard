@@ -25,6 +25,9 @@ test-results/
 # guard runtime output
 .genui-guard/
 evals/reports/*.json
+# The pull request comment is a CI artifact, regenerated on every run. The
+# report itself stays committed, so the published numbers are reproducible.
+evals/reports/latest.comment.md
 
 # editors
 .vscode/

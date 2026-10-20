@@ -68,6 +68,31 @@ export const ERRORS = {
       `Narrow one of [${d.policies}] so only one owns "${d.prop}". The element was blocked, because picking a winner would mean asserting a value no policy agreed on.`,
     docsPath: "docs/decisions.md",
   },
+  GUARD_E_MALFORMED_EVENT: {
+    message: (d) =>
+      `Received a stream event with kind "${d.received}", which the guard has no handling for.`,
+    hint: () =>
+      `Pass events of kind "root", "element" or "state". If you are translating a renderer's wire format by hand, use an adapter instead: @genui-guard/json-render turns a json-render spec or its JSONL patches into these events.`,
+    docsPath: "docs/concepts.md",
+  },
+  GUARD_E_MALFORMED_ELEMENT: {
+    message: (d) => `Element "${d.id}" is missing ${d.missing}.`,
+    hint: (d) =>
+      `Give the element an id, a type and a props object before checking it. A guard element is { id, type, props, children }, and "${d.id}" arrived without ${d.missing}.`,
+    docsPath: "docs/concepts.md",
+  },
+  GUARD_E_UNCLASSIFIED_PROP: {
+    message: (d) =>
+      `Prop "${d.prop}" on "${d.component}" is ${d.received}, which does not say where its value came from.`,
+    hint: (d) =>
+      `Classify it first. Every prop arrives as { kind: "literal", value }, { kind: "ref", path } or { kind: "expr", raw }, because that distinction is what the guard verifies. A renderer's own notation such as { "$state": "fares.A.price" } has to be translated: call toPropValue from @genui-guard/json-render, or write { kind: "ref", path: "fares.A.price" } for "${d.prop}" yourself.`,
+    docsPath: "docs/concepts.md",
+  },
+  GUARD_E_MALFORMED_CATALOG: {
+    message: (d) => `The value passed to fromJsonRender is not a catalog: ${d.received}.`,
+    hint: () =>
+      `Pass the object returned by json-render's defineCatalog, which carries componentNames and the per-component prop schemas. A plain object literal will not do, because the adapter reads the catalog's own schemas rather than a second description of them.`,
+  },
   GUARD_E_INVALID_HOLD_TIMEOUT: {
     message: (d) => `holdTimeoutMs must be a positive number, received ${d.received}.`,
     hint: () =>

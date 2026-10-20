@@ -6,9 +6,9 @@
   "scripts": {
     "predev": "pnpm --filter @genui-guard/core --filter @genui-guard/json-render build",
     "prebuild": "pnpm --filter @genui-guard/core --filter @genui-guard/json-render build",
-    "dev": "next dev --port 3000",
+    "dev": "next dev",
     "build": "next build",
-    "start": "next start --port 3000",
+    "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "playwright test"
   },

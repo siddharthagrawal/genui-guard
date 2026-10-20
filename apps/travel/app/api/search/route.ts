@@ -134,7 +134,16 @@ function matchOutcomes(
       continue;
     }
 
-    const interesting = (trace.results ?? []).find((r) => r.decision !== "allow");
+    // Several injections can land on one element: a literal price, a wrong stop
+    // count and an invented badge all target the same fare card. Matching by
+    // element alone made every row report whichever finding came first, so the
+    // "nonstop" switch described itself with the price's reason. Injections
+    // carry the prop they touched, and the guard's reasons name it as
+    // "Component.prop", so prefer the finding that is actually about this one.
+    const results = (trace.results ?? []).filter((r) => r.decision !== "allow");
+    const interesting =
+      (injection.prop && results.find((r) => r.reason.includes(`.${injection.prop}`))) ||
+      results[0];
     out[injection.chaos] = {
       decision: trace.final ?? "allow",
       reason: interesting?.reason ?? trace.reason ?? "Allowed.",

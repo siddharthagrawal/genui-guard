@@ -1,4 +1,9 @@
-import { createRegistry, type ComponentRules, type Registry } from "@genui-guard/core";
+import {
+  createRegistry,
+  GuardError,
+  type ComponentRules,
+  type Registry,
+} from "@genui-guard/core";
 import type { z } from "zod";
 
 /**
@@ -23,6 +28,12 @@ export function fromJsonRender(
   catalog: CatalogLike,
   rules: Record<string, ComponentRules> = {},
 ): Registry {
+  // Without this the first thing a developer sees is a TypeError reading 'map'
+  // from inside dist, which says nothing about what they passed.
+  if (!catalog || !Array.isArray(catalog.componentNames)) {
+    throw new GuardError("GUARD_E_MALFORMED_CATALOG", { received: describe(catalog) });
+  }
+
   const components = readComponents(catalog);
 
   const specs = catalog.componentNames.map((name) => {
@@ -48,6 +59,17 @@ export function fromJsonRender(
   }
 
   return createRegistry(specs);
+}
+
+function describe(value: unknown): string {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (Array.isArray(value)) return "an array";
+  if (typeof value !== "object") return `a ${typeof value}`;
+  const keys = Object.keys(value as object);
+  return keys.length > 0
+    ? `an object with keys [${keys.join(", ")}] and no componentNames`
+    : "an empty object";
 }
 
 function readComponents(catalog: CatalogLike): Record<string, ComponentEntry> {
