@@ -21,7 +21,8 @@ A catalog makes a component valid but it does not make the component true. A val
 Bad data gets through even when every fare comes from a real API, because the model writes the component's properties itself. Here is what that means in practice. The travel assistant calls `searchFlights`, and your server loads the result.
 
 ```jsonc
-// searchFlights result, loaded by your server
+// Host state after recordToolResult, which indexes the searchFlights array by
+// fareId. That is what `key` is for: records addressed by identity, never position.
 { "fares": { "HA-2041": {
   "fareId": "HA-2041", "airline": "Harbor Air", "price": 412, "stops": 1, "seatsLeft": 4,
   "fareRules": { "refundable": false, "changeFee": 90, "bagsIncluded": 1 }
@@ -181,7 +182,7 @@ pnpm i && pnpm --filter travel dev    # no API key needed
 # http://localhost:3000/?dev  developer panel open, every failure injected
 ```
 
-The layout is deliberate. Chat sits on the left, the agent-composed results in the centre, and genui-guard lives in a separate dark developer panel on the right that opens on demand. The default view is the product, with no sign that a guard exists, because that is what a user of such a travel app would see. Open that panel and you get a switch for each of eight failures, and each one reports the decision it produced in the guard's own words, so you can read cause and effect from one switch rather than diffing two pages. `?dev` starts with all eight on, which is the fastest way to see the whole set; turn them off individually to isolate one.
+The layout is deliberate. Chat sits on the left, the agent-composed results in the centre, and genui-guard lives in a separate dark developer panel on the right that opens on demand. The default view is the product, with no sign that a guard exists, because that is what a user of such a travel app would see. Open that panel and you get a switch for each of eight representative failures, chosen from the table above to cover each outcome rather than to be exhaustive, and each one reports the decision it produced in the guard's own words, so you can read cause and effect from one switch rather than diffing two pages. `?dev` starts with all eight on, which is the fastest way to see the whole set; turn them off individually to isolate one.
 
 The demo has browser tests, which are also the fastest way to see every behaviour at once: `pnpm --filter travel exec playwright install` once for the browsers, then `pnpm --filter travel test` runs ten of them. Playwright starts its own server on port 3100 and stops it afterwards, so it neither collides with the dev server you may already have on 3000 nor needs you to start anything. They cover the user view, the developer panel, the chaos toggles, a gated booking and a surgical repair.
 
@@ -195,7 +196,7 @@ genui-guard works with the catalog you already have, with `@json-render/core` su
 
 Install it alongside your existing setup.
 
-Publication was gated on the eval suites, so that the false block rate above is a measured number rather than a promise. All three packages are on npm.
+Publication was gated on the eval suites, so that the false-block rate was a measured number rather than a promise. It is 2.0%, measured the way described [further down](#what-do-the-evals-measure). All three packages are on npm.
 
 ```bash
 pnpm add @genui-guard/core zod                       # the guard
@@ -304,7 +305,11 @@ A claim topic is matched against the field names on the bound entity, with both 
 
 Two of the five change the tree, two change a property, and one does neither, which is worth spelling out because only the first two are self-explanatory.
 
-**Block** removes the element and prunes its id from every parent's children and named slots. **Repair** replaces a property in place, subtractively: a claim out of a list, a URL set to null, alt text filled in from a value already on the element. Both arrive as an ordinary spec your renderer draws with no special handling.
+**Block** removes the element and prunes its id from every parent's children and named slots. **Repair** replaces a property in place, subtractively: a claim out of a list, a URL set to null, alt text filled in from a value already on the element.
+
+That last one needs its convention stating, since the configuration is only `a11y: { requireAlt: ["imageAlt"] }`. When the required property is empty the guard looks for `name`, `title`, `label` or `heading` on the same element, in that order, and copies the first one that has text. It reads the *resolved* value, so a bound `name` works and not only a typed one, which matters because in any real catalog the name beside an image is bound. If none of them yields text there is nothing honest to invent, and the element is withheld rather than given a description of a picture nobody has seen.
+
+Block and repair both arrive as an ordinary spec your renderer draws with no special handling.
 
 **Gate** sets json-render's own `confirm` field on the action, so its existing dialog and action layer ask before firing. There is no genui-guard component to mount and no prop to wire up. On a different renderer you read the gated action names off the trace and apply your own confirmation.
 
@@ -385,11 +390,14 @@ pnpm --filter @genui-guard/evals test    # runs both suites, in about a fifth of
 
 Measured over 51 legitimate components and 76 held-out failures, first on 17 October 2026 and unchanged since. The committed report at [evals/reports/latest.md](evals/reports/latest.md) carries no date or timing, so running the suites yourself reproduces it byte for byte rather than producing a diff. The cases are in [evals/cases](evals/cases).
 
-| Measure | Rate | |
+| Measure | Figure | |
 |---|---|---|
 | **False blocks**, legitimate components withheld | **2.0%**, 1 of 51 | the headline |
 | False modifications, something true taken out of one | 0.0%, 0 of 51 | |
 | Detection, held-out failures caught | 51.3%, 39 of 76 | with the gap below |
+| Added latency, per element checked | 0.0033ms at p99 | nine policies and schema validation |
+
+The latency row is there because a check that sits inside a stream has to be free in practice, not just in principle. That figure is a Vitest bench over an element with nine policies and the host's zod schema, so it includes the contract validation, which is the most expensive thing in the pipeline. A fifty-element page therefore costs well under a millisecond in total. The acceptance criterion was 5ms at p95 and the measurement is three orders of magnitude inside it, which is the whole argument for keeping the deterministic checks deterministic: they cost nothing, so there is no reason to batch them or move them off the critical path.
 
 The single false block is the one I would have predicted and could not have priced without measuring: a legitimate `repeat` over the loaded fares, with properties reading json-render's `$item`. The guard blocks an expression in a bound property, because a template can interpolate a model-written fragment, and `$item` is indistinguishable to it from one. The suite carries five expression cases and this is the only one that fires, which is not the rule behaving inconsistently: the other four put a template, a conditional or a computed value on properties that are *not* bound, where the guard has nothing to attribute and does not look, or use `$bindState`, which is a direct reference like `$state`. Only `$item` inside a `repeat` lands on a bound property. So iteration over verified data is the cost of that rule, and softening it is now a decision with a number attached rather than a matter of taste.
 
@@ -415,17 +423,17 @@ Two near-misses in the deterministic rows are worth naming, because a reader who
 
 The state-patch family is 4 of 5, and the missed case does not breach namespace ownership. The patch was rejected exactly as promised: the host's price stood and the model's did not reach the page. What survived was the fabricated badge on the same card, "Only 1 room left" against a record with two, which the claim policy has no topic for. The namespace guarantee held and the claim gap swallowed the case.
 
+The accessibility family is 2 of 3, and the miss is the same kind of thing: those rules only fire where a host asks for them, and the demo asks for alt text on hotel photos and nothing about labels, so its unlabelled text input passes.
+
 The binding family is 11 of 12 for a reason that is configuration rather than code. Verification covers the properties a host declares bound, and the demo binds airline, price and stops. The missed case transposes a *departure time*, which is not bound, so a card can still pair one flight's schedule with another's price. Binding `depart` and `arrive` would catch it, and the demo does not, which is the sort of gap `genui-guard check` is there to make visible.
 
 Nothing in the last four rows was caught, and that is the shape of the limitation rather than a bug to fix with better keywords. `dropUnsourcedClaims` matches configured topics against the field names on the source record, so "Refundable" on a non-refundable fare is caught and "Cancel any time for a full refund" on the same fare is not. What it buys for that missed recall is precision: across 51 legitimate components it removed nothing true, which is why it is safe to leave switched on while the recall problem gets solved properly. A semantic check is the first item on [the roadmap](ROADMAP.md).
 
+### Why a semantic check belongs behind the stream rather than inside it
+
 The reason a semantic check is next rather than now is latency and determinism, and the shape it has to take follows from where each check can afford to sit. Everything today is tier one: structural, provenance, role, action and URL checks, deterministic and inline, adding no measurable time before first paint. A semantic check is tier two, and cannot go inline without putting a model call inside the stream. So it holds the free-text property while the card's shell renders, or it runs behind the stream and emits the same `drop` event the guard already uses when an element has to be withdrawn after the fact. The mechanism for revoking something already sent exists; what is missing is the judgement to put behind it.
 
 The two numbers come from different rules and it is worth not blurring them, because they fail in opposite directions. The false block is `requireBinding` refusing an expression in a bound property, which trades iteration ergonomics for provenance and costs 1 case in 51. The paraphrase gap is `dropUnsourcedClaims` matching lexically, which trades recall for precision and costs 18 cases in 18. One rule is too strict and the other is not strict enough, and no single adjustment improves both.
-
-Two further limits came out of the run and are worth stating because neither is visible from the code. Verification only covers the properties a host declares bound, so the demo, which binds airline, price and stops, does not catch a card showing one flight's price beside another flight's departure time. And accessibility rules only fire where the host asked for them, so the demo's unlabelled text input passes. Both are configuration rather than defects, and both are the kind of gap `genui-guard check` is for.
-
-Three of the numbers above moved because the suites found defects in code that 206 passing tests had not. Property validation against the host's schema was never wired in, a state key written as a JSON Pointer skipped the reserved-namespace screen completely, and the alternative-text repair could not read a bound name, so it withheld cards instead of repairing them.
 
 To keep the deterministic rules from being overfitted to the cases that score them, [docs/eval-protocol.md](docs/eval-protocol.md) freezes the held-out suite before any rule is touched, and the suites run the demo's shipped configuration rather than a second copy that could be tuned quietly. It also logs the only two case corrections made afterwards, both of them fixture errors rather than results: one case used a role name the application does not have, and one asserted something a second case contradicted.
 

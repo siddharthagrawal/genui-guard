@@ -152,7 +152,7 @@ Chaos mode injects, at minimum: a literal price in a bound prop, a model state p
 - [x] A Playwright smoke test passes, covering the user view, the developer panel, the chaos toggle and a gated booking
 - [x] Fresh clone to running chaos demo with no API key
 - [x] Contract tests against the real `catalog.validate` and `resolveElementProps`, so a json-render upgrade fails loudly
-- [ ] Hold-until-verified shows a skeleton rather than a flash of an unverified fare, visible when throttled. The core behaviour is tested, but the demo records tool results before streaming, so there is nothing to hold; needs a deliberately slow tool to show
+- [ ] Hold-until-verified shows a skeleton rather than a flash of an unverified fare, visible when throttled. The core behaviour is tested, but the demo records tool results before streaming, so there is nothing to hold. It needs more than a slow tool: the demo's transport is a single JSON response, so the browser never sees a partial page and there is no moment for a skeleton to occupy. Showing this means giving the demo a streaming transport end to end, which is now the top demo item on ROADMAP.md
 
 The layout changed during this phase. Chat sits on the left, the agent-composed results in the centre, and the developer panel is a separate dark surface on the right that opens on demand, so the default view is the product and the guardrails are opt-in. Live mode was added and turned out to need no chaos injection: json-render's generated prompt instructs the model to "include realistic sample data in state", so a model following its renderer's own instructions invents fares without being asked to.
 
