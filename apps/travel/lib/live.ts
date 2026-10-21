@@ -23,14 +23,22 @@ import type { ToolCall } from "./fixtures";
 const MODEL = process.env.GENUI_GUARD_MODEL ?? "claude-opus-5";
 
 export function liveStatus(): { available: boolean; reason?: string } {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return {
-      available: false,
-      reason:
-        "Set ANTHROPIC_API_KEY in apps/travel/.env.local to enable live mode. Next reads .env.local from the app directory, not the repository root. Copy apps/travel/.env.example to start. Replay and chaos modes need no key.",
-    };
-  }
-  return { available: true };
+  if (process.env.ANTHROPIC_API_KEY) return { available: true };
+
+  // Two audiences, two answers. On the hosted demo the reader has no checkout
+  // and no way to set anything, so telling them which dotfile to edit is
+  // useless; the honest message is that this deployment deliberately holds no
+  // key. Locally, the useful message names the file, because Next reads
+  // .env.local from the app directory and not the repository root, which is
+  // where people put it first.
+  const hosted = Boolean(process.env.VERCEL);
+
+  return {
+    available: false,
+    reason: hosted
+      ? "This hosted demo carries no API key, so live mode is off: there is nothing here to spend. Replay and chaos need no key and are what you are looking at. To try live mode, clone the repository and add your own key."
+      : "Set ANTHROPIC_API_KEY in apps/travel/.env.local to enable live mode. Next reads .env.local from the app directory, not the repository root. Copy apps/travel/.env.example to start. Replay and chaos modes need no key.",
+  };
 }
 
 const TOOLS: Anthropic.Tool[] = [

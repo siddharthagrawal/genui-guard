@@ -12,15 +12,30 @@ import { defineConfig } from "@playwright/test";
  */
 const PORT = Number(process.env.PORT ?? 3100);
 
+/**
+ * Set DEMO_URL to run the same tests against a deployment instead of a local
+ * server, which is how the hosted demo gets verified rather than assumed:
+ *
+ *   DEMO_URL=https://genui-guard.vercel.app pnpm --filter travel test
+ *
+ * No server is started in that mode, so the tests are checking the thing
+ * visitors actually load.
+ */
+const deployed = process.env.DEMO_URL;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
-  use: { baseURL: `http://localhost:${PORT}` },
-  webServer: {
-    command: `pnpm dev --port ${PORT}`,
-    url: `http://localhost:${PORT}`,
-    // Reuse only when iterating locally, and never in CI. Set PORT to move it.
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  use: { baseURL: deployed ?? `http://localhost:${PORT}` },
+  ...(deployed
+    ? {}
+    : {
+        webServer: {
+          command: `pnpm dev --port ${PORT}`,
+          url: `http://localhost:${PORT}`,
+          // Reuse only when iterating locally, never in CI. Set PORT to move it.
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        },
+      }),
 });

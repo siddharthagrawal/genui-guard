@@ -2,6 +2,8 @@
 
 **genui-guard is a trust layer for generative UI.** It sits on your server, between the AI agent that decides what to show and the renderer that draws it, and it checks that what the user sees is **true, permitted, and safe** before it reaches the screen.
 
+**[Try it →](https://genui-guard.vercel.app/?dev)** No signup, no API key, nothing to install. Eight model failures on switches: flip one and watch the card disappear, the invented badge get stripped, or the Book button start asking first, each with the guard's own sentence explaining why. The [user's view](https://genui-guard.vercel.app/) is the same page with the panel closed, which is what someone booking a flight would see.
+
 This is a prototype. The interfaces are pre-1.0 and all demo data is fictional.
 
 ---
@@ -175,12 +177,16 @@ The guard is deterministic and makes no network calls. It takes `zod` v4 as a pe
 
 The interesting behaviour only shows up when something goes wrong, so start with the demo. It is a fictional travel search where an agent composes the results page.
 
+It is deployed, so the fastest version of this is [genui-guard.vercel.app/?dev](https://genui-guard.vercel.app/?dev) and no clone at all. To run it locally:
+
 ```bash
 git clone https://github.com/siddharthagrawal/genui-guard && cd genui-guard
 pnpm i && pnpm --filter travel dev    # no API key needed
 # http://localhost:3000       the user's view
 # http://localhost:3000/?dev  developer panel open, every failure injected
 ```
+
+The deployment sets no environment variables at all, which is deliberate: with no `ANTHROPIC_API_KEY` there is nothing to spend and nothing to abuse, so live mode is disabled there and replay and chaos are deterministic server-side computation with no outbound calls. The same eleven browser tests run against it with `DEMO_URL=https://genui-guard.vercel.app pnpm --filter travel test`, so what is deployed is verified rather than assumed.
 
 The layout is deliberate. Chat sits on the left, the agent-composed results in the centre, and genui-guard lives in a separate dark developer panel on the right that opens on demand. The default view is the product, with no sign that a guard exists, because that is what a user of such a travel app would see. Open that panel and you get a switch for each of eight representative failures, chosen from the table above to cover each outcome rather than to be exhaustive, and each one reports the decision it produced in the guard's own words, so you can read cause and effect from one switch rather than diffing two pages. `?dev` starts with all eight on, which is the fastest way to see the whole set; turn them off individually to isolate one.
 
