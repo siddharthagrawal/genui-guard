@@ -4,7 +4,7 @@ import { mergeResults } from "./decisions.js";
 import { guardError, GuardError } from "./errors.js";
 import { checkProvenance } from "./provenance.js";
 import { lintRegistry } from "./registry.js";
-import { createTurnState, type TurnState } from "./state.js";
+import { createTurnState, recordId, type TurnState } from "./state.js";
 import { createTree } from "./tree.js";
 import { assertElement, assertEvent } from "./validate.js";
 import type {
@@ -195,7 +195,7 @@ export function createGuard(config: GuardConfig): Guard {
     for (const prop of spec.bound ?? []) {
       const value = element.props[prop];
       if (value?.kind !== "ref") continue;
-      const id = value.path.split(".")[1];
+      const id = recordId(value.path);
       if (!id) continue;
       const rec = state.record(spec.entity, id);
       if (rec) return rec;

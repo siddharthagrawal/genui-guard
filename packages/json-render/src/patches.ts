@@ -53,7 +53,12 @@ export function patchToEvent(patch: JsonRenderPatch): GuardEvent | null {
 
   if (head === "state") {
     if (rest.length === 0 || patch.op === "remove") return null;
-    return { kind: "state", path: rest.join("."), value: patch.value };
+    // Same escaping as pointerToPath, so a dotted key survives the trip.
+    return {
+      kind: "state",
+      path: rest.map((segment) => segment.replaceAll(".", "\\.")).join("."),
+      value: patch.value,
+    };
   }
 
   return null;

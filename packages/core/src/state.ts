@@ -44,15 +44,59 @@ export type TurnState = {
 
 const SEP = ".";
 
+/**
+ * Paths are dotted, and real record identifiers contain dots: airline fare
+ * codes, SKUs, composite keys, anything built by joining fields. A dot inside a
+ * segment is escaped as `\.`, so `fares.UA\.102\.Y.price` is three segments
+ * and not five. Splitting naively used to make a perfectly good card
+ * unresolvable, and a host whose ids all look like that saw every bound card
+ * blocked.
+ */
 export function splitPath(path: string): string[] {
-  return path.split(SEP).filter((s) => s.length > 0);
+  const parts: string[] = [];
+  let current = "";
+
+  for (let i = 0; i < path.length; i += 1) {
+    const char = path[i]!;
+    if (char === "\\" && path[i + 1] === SEP) {
+      current += SEP;
+      i += 1;
+      continue;
+    }
+    if (char === SEP) {
+      if (current.length > 0) parts.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  if (current.length > 0) parts.push(current);
+
+  return parts;
 }
 
-/** "fares.HA-2041.price" -> "fares.HA-2041". Used for the coherence check. */
+/** The inverse, so a path the guard builds survives being split again. */
+export function escapeSegment(segment: string): string {
+  return segment.replaceAll(SEP, `\\${SEP}`);
+}
+
+export function joinPath(parts: string[]): string {
+  return parts.map(escapeSegment).join(SEP);
+}
+
+/**
+ * "fares.HA-2041.price" -> "fares.HA-2041". Used for the coherence check, so it
+ * has to stay a single comparable string while surviving a dot in the id.
+ */
 export function recordPrefix(path: string): string | undefined {
   const parts = splitPath(path);
   if (parts.length < 2) return undefined;
-  return `${parts[0]}${SEP}${parts[1]}`;
+  return joinPath([parts[0]!, parts[1]!]);
+}
+
+/** The record identifier a path addresses, with any escaping undone. */
+export function recordId(path: string): string | undefined {
+  return splitPath(path)[1];
 }
 
 function walk(root: unknown, parts: string[]): { found: boolean; value: unknown } {

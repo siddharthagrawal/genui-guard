@@ -54,6 +54,10 @@ const { spec, dropped, annotations, traces } = await guardSpec(guard, modelSpec,
 
 For a live model streaming patches rather than a finished spec, use `patchesToEvents` with `guardEvents`.
 
+## A note on identifiers
+
+Paths cross into the guard as dotted strings, so a dot inside a record identifier is escaped: `/fares/UA.102.Y/price` becomes `fares.UA\.102\.Y.price` and stays three segments. Fare codes, SKUs and composite keys contain dots routinely, and without the escaping the guard looked for a record called `UA` and blocked a card that was correct.
+
 ## A note on expressions
 
 json-render supports eight property expression forms. Only `$state` and `$bindState` are direct references to a path, and those are the only ones a bound property may use. Templates, computed values and iteration scopes become `expr`, which the guard blocks in a bound property, because a template can interpolate a model-written fragment that cannot be attributed to a source.

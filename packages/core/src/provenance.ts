@@ -1,4 +1,4 @@
-import { recordPrefix, type TurnState } from "./state.js";
+import { recordId, recordPrefix, type TurnState } from "./state.js";
 import type { ComponentSpec, GuardElement, PolicyResult, PropValue } from "./types.js";
 
 const POLICY = "requireBinding";
@@ -60,7 +60,9 @@ export function checkProvenance(
   // The claimed record must exist, and its key field must agree with the path.
   const only = [...prefixes][0];
   if (only && entity && spec.key) {
-    const id = only.split(".")[1]!;
+    // Read the id from the path rather than from the prefix string, so an
+    // identifier containing a dot is one segment and not several.
+    const id = recordId(only)!;
     const rec = state.record(entity, id);
     if (!rec) {
       results.push({

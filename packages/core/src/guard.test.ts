@@ -7,6 +7,7 @@ import type { ComponentSpec, Ctx, Guard, GuardElement, GuardEvent, PropValue } f
 
 const FARES = [
   { fareId: "HA-2041", airline: "Harbor Air", price: 412, stops: 1, seatsLeft: 4, fareRules: { refundable: false } },
+  { fareId: "HA-5500", airline: "Harbor Air", price: 540, stops: 0, seatsLeft: 3, fareRules: { refundable: true } },
   { fareId: "HA-3388", airline: "Coastline", price: 655, stops: 0, seatsLeft: 0, fareRules: { refundable: true } },
 ];
 
@@ -143,6 +144,70 @@ describe("policies through the guard", () => {
     // HA-3388 is sold out, so it blocks, but not for the claim.
     const { trace } = guard.check(supported, CTX);
     expect(trace.results.some((r) => r.policy === "dropUnsourcedClaims")).toBe(false);
+  });
+
+  /**
+   * A reviewer found this and it was the worst kind of wrong: the guard was
+   * deleting honest warnings. "Non-refundable" contains the configured topic,
+   * the field said false, and the old rule read that as unsupported, so the
+   * badge protecting the buyer came off the card. A claim can deny its topic as
+   * well as assert it, and the source has to agree with whichever was meant.
+   */
+  it("keeps a denial the source agrees with", () => {
+    const { decision, element } = guard.check(flight({ badge: lit("Non-refundable") }), CTX);
+
+    expect(decision).toBe("allow");
+    expect(element?.props.badge).toEqual({ kind: "literal", value: "Non-refundable" });
+  });
+
+  it("keeps a denial written as separate words", () => {
+    const { element } = guard.check(flight({ badge: lit("Not refundable") }), CTX);
+    expect(element?.props.badge).toEqual({ kind: "literal", value: "Not refundable" });
+  });
+
+  /**
+   * The asymmetry question, settled deliberately. These fares carry no
+   * cancellation field at all, so "No free cancellation" is as unverifiable as
+   * its opposite, and it still comes off. A denial is the milder failure, since
+   * it under-promises rather than inducing a purchase on false terms, but the
+   * policy is called dropUnsourcedClaims and a denial about a field that does
+   * not exist is the model inventing a fact with a minus sign in front of it.
+   */
+  it("removes a denial the source cannot speak to either way", () => {
+    const { decision, element } = guard.check(flight({ badge: lit("No free cancellation") }), CTX);
+
+    expect(decision).toBe("repair");
+    expect(element?.props.badge).toEqual({ kind: "literal", value: null });
+  });
+
+  it("removes a denial the source contradicts", () => {
+    const refundable = flight(
+      {
+        airline: ref("fares.HA-5500.airline"),
+        price: ref("fares.HA-5500.price"),
+        stops: ref("fares.HA-5500.stops"),
+        badge: lit("Non-refundable"),
+      },
+      "f9",
+    );
+    const { decision, element } = guard.check(refundable, CTX);
+
+    expect(decision).toBe("repair");
+    expect(element?.props.badge).toEqual({ kind: "literal", value: null });
+  });
+
+  /** The negation has to attach to the topic, not to anything nearby. */
+  it("does not read a negation that belongs to a different claim", () => {
+    const { decision } = guard.check(flight({ badge: lit("Refundable, no change fees") }), CTX);
+    expect(decision).toBe("repair");
+  });
+
+  it("keeps the denial and drops the fabrication in one list", () => {
+    const { element } = guard.check(
+      flight({ badges: lit(["Non-refundable", "Free cancellation"]) }),
+      CTX,
+    );
+    expect(element?.props.badges).toEqual({ kind: "literal", value: ["Non-refundable"] });
   });
 
   it("blocks a sold out fare", () => {

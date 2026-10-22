@@ -88,6 +88,28 @@ The broader principle this surfaced is that genui-guard should check whether the
 
 ---
 
+## Does a claim that denies something need checking too?
+
+The claim policy started by asking one question of a claim: does the source support it? That reads fine until a model writes an honest warning. "Non-refundable" on a fare that is not refundable contains the word the policy watches, the field says `false`, and the old rule read that as unsupported and deleted the badge. The guard was removing the warning that protects the person about to pay, which is the most harmful thing it has done to date and the clearest case of a check being worse than no check.
+
+So a claim is now read as asserting its topic or denying it, and the source has to agree with whichever was meant. The pleasant surprise is that this also fixes inverse-polarity fields for free: travel data states rules as penalties, so `changeFee: 0` means changes are free, and "no change fee" against `0` now reads as supported where a positive reading of the same field would have called it unsupported.
+
+The question that took the longest was what to do with a denial the source cannot speak to at all, such as "no free cancellation" against a record with no cancellation field. The harm is asymmetric, which argues for keeping it: a false denial under-promises, and it never induces a purchase on false terms the way a false promise does. I removed it anyway. The policy is called `dropUnsourcedClaims`, a denial of something the source never mentions is still the model inventing a fact with a minus sign in front of it, and a model that learns it can say anything in the negative has found a hole rather than a feature. What I gave up is a class of harmless-but-true warnings that a host has to put on the card itself, which is the right place for it.
+
+One note on how this was found, because it matters more than the fix. The clean suite reported a 0.0% false-modification rate for four days while this bug was live, and it was right to: not one of its fifty-one cases contained a negative claim. A suite can only be as honest as its coverage is wide, and the number was accurate and misleading at the same time.
+
+---
+
+## Why escape dots in a path when the separator is a dot?
+
+Paths are dotted strings, `fares.HA-2041.price`, which is the notation the trace and every error message reads best in. It is also wrong for real data: airline fare codes, SKUs, composite keys and anything built by joining fields contain dots, so `fares.UA.102.Y.price` split into five segments, the guard looked for a record called `UA`, and a correct card was blocked. A host whose identifiers all looked like that had every bound card withheld, which is total failure rather than a rough edge.
+
+The alternatives were to make the path an array of segments, or to escape. An array is the cleaner representation and it changes a public type that appears in `PropValue`, in every trace, in the reason strings and in the documentation, for a problem that escaping solves. So a dot inside a segment is written `\.`, the splitter honours it, and the adapter escapes on the way in and unescapes on the way out.
+
+What I gave up is tidy reason strings for those hosts: a message about `fares.UA\.102\.Y.price` is uglier than one about a clean id. I would rather an ugly message about a card that renders than an elegant one about a card that does not.
+
+---
+
 ## Why not offer a substitute when something is blocked?
 
 Blocking a sold out hotel leaves a gap in a results list, and the tempting next step is to fill it with the next available option. I decided not to.

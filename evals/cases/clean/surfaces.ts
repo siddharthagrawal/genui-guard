@@ -13,7 +13,7 @@ import { flight, hotelCard, ref, screen } from "../../src/fixtures.js";
  * inside the headline rate, not excluded from it, because choosing the
  * denominator after seeing the result is how a measurement becomes an opinion.
  */
-export const cases: EvalCase[] = [
+const base: EvalCase[] = [
   {
     id: "clean-structure-nested-stacks",
     family: "structure",
@@ -197,3 +197,47 @@ export const cases: EvalCase[] = [
     expect: { kept: ["summary"] },
   },
 ];
+
+/**
+ * Entity ids with dots in them, which is what airline fare codes, SKUs and
+ * composite keys actually look like. The suite used only dot-free ids, so it
+ * could not see that a dotted id broke resolution outright.
+ */
+const DOTTED_FARES = [
+  { fareId: "UA.102.Y", airline: "Harbor Air", price: 412, stops: 1, seatsLeft: 4,
+    fareRules: { refundable: true, changeFee: 0, bagsIncluded: 1 } },
+];
+
+export const dottedIds: EvalCase[] = [
+  {
+    id: "clean-dotted-entity-id",
+    family: "bound",
+    describe:
+      "A fare whose id contains dots, bound correctly. Every reference resolves against a record the host loaded, so the card has to render.",
+    tools: [
+      { turnId: "eval-turn", toolName: "searchFlights", entity: "fares", key: "fareId", data: DOTTED_FARES },
+    ],
+    spec: {
+      root: "root",
+      elements: {
+        root: { type: "Stack", props: { gap: 8, heading: "Flights" }, children: ["card"] },
+        card: {
+          type: "FlightCard",
+          props: {
+            airline: { $state: "/fares/UA.102.Y/airline" },
+            price: { $state: "/fares/UA.102.Y/price" },
+            stops: { $state: "/fares/UA.102.Y/stops" },
+            depart: null,
+            arrive: null,
+            badges: null,
+            note: null,
+          },
+          children: [],
+        },
+      },
+    },
+    expect: { kept: ["card"] },
+  },
+];
+
+export const cases: EvalCase[] = [...base, ...dottedIds];

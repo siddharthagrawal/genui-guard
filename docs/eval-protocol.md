@@ -45,6 +45,15 @@ Recorded here because the protocol above says they have to be.
   The criterion that the card must not render is kept, which is the thing worth
   measuring. The case was failing before the correction and still fails after
   it only if the card renders.
+- **`clean-negative-claim-no-free-cancellation` was wrong about the source.** It
+  asserted that HA-2041 has no free cancellation and that the badge saying so
+  was therefore supported. The fare rules in `apps/travel/lib/data.ts` carry
+  `refundable`, `changeFee` and `bagsIncluded`, and nothing at all about
+  cancellation, so the source neither supports that denial nor contradicts it.
+  The case was replaced with the same warning in prose on a topic the data does
+  cover. The decision it provoked is recorded in `docs/decisions.md`: an
+  unverifiable denial is still removed, because a denial about a field that does
+  not exist is the model inventing a fact with a minus sign in front of it.
 - **The staff role was named wrong in two cases.** Both used `role: "staff"`,
   and the application's role is `support_agent`. A session role is wiring rather
   than a claim about the data, so changing it does not make either case easier

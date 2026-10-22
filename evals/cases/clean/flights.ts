@@ -20,7 +20,7 @@ import { fareRules, flight, screen, turnWithRules } from "../../src/fixtures.js"
  *   NV-1166   0      798    1      yes         0           2      16:40 - 20:25
  *   MR-4499   1      392    8      no          110         1      20:45 - 04:20
  */
-export const cases: EvalCase[] = [
+const base: EvalCase[] = [
   {
     id: "clean-bound-fare-basic",
     family: "bound",
@@ -213,3 +213,48 @@ export const cases: EvalCase[] = [
     expect: { kept: ["card"], present: ["flights"] },
   },
 ];
+
+/**
+ * Added after a reviewer found two blind spots the suite could not see, both of
+ * them shapes no case here had: an honest negative claim, and an entity id with
+ * a dot in it. Written to fail against the code as it stood, because a case
+ * that passes on arrival proves nothing.
+ *
+ * HA-2041 is NOT refundable and has a $90 change fee, so a badge saying so is
+ * the truth, and removing it takes a warning away from the person about to buy.
+ */
+export const lateAdditions: EvalCase[] = [
+  {
+    id: "clean-negative-claim-refundable",
+    family: "claim-supported",
+    describe:
+      "A non-refundable fare badged Non-refundable. The source agrees with the badge, so the badge is protective and has to survive.",
+    spec: screen({ card: flight("HA-2041", { badges: ["Non-refundable"] }) }),
+    expect: { kept: ["card"], present: ["Non-refundable"] },
+  },
+  {
+    id: "clean-negative-claim-spelled-out",
+    family: "claim-supported",
+    describe: "The same warning written as two words rather than hyphenated.",
+    spec: screen({ card: flight("HA-2041", { badges: ["Not refundable"] }) }),
+    expect: { kept: ["card"], present: ["Not refundable"] },
+  },
+  {
+    id: "clean-negative-claim-in-prose",
+    family: "claim-supported",
+    describe:
+      "The same warning as a sentence rather than a badge, since prose is checked on the same terms as a list.",
+    spec: screen({ card: flight("HA-2041", { note: "This fare is not refundable." }) }),
+    expect: { kept: ["card"], present: ["not refundable"] },
+  },
+  {
+    id: "clean-positive-and-negative-together",
+    family: "claim-supported",
+    describe:
+      "One true positive and one true negative on the same card, which is how a fare is usually summarised.",
+    spec: screen({ card: flight("HA-2041", { badges: ["1 bag included", "Non-refundable"] }) }),
+    expect: { kept: ["card"], present: ["1 bag included", "Non-refundable"] },
+  },
+];
+
+export const cases: EvalCase[] = [...base, ...lateAdditions];

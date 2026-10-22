@@ -202,7 +202,7 @@ genui-guard works with the catalog you already have, with `@json-render/core` su
 
 Install it alongside your existing setup.
 
-Publication was gated on the eval suites, so that the false-block rate was a measured number rather than a promise. It is 2.0%, measured the way described [further down](#what-do-the-evals-measure). All three packages are on npm.
+Publication was gated on the eval suites, so that the false-block rate was a measured number rather than a promise. It is 1.8%, measured the way described [further down](#what-do-the-evals-measure). All three packages are on npm.
 
 ```bash
 pnpm add @genui-guard/core zod                       # the guard
@@ -305,7 +305,11 @@ The third is the only incremental path, and the only renderer-agnostic one. It t
 
 One notation detail worth knowing: the guard speaks dotted paths and json-render speaks JSON Pointer, so a `$state` written as `fares.HA-2041.price` on the way in comes back as `/fares/HA-2041/price` on the way out. json-render resolves both, and the translation lives in the adapter rather than in your code.
 
-A claim topic is matched against the field names on the bound entity, with both sides reduced to crudely singularised word tokens, which is how `"bag included"` finds `bagsIncluded`. Support means the field affirms the claim rather than merely existing, so `2` bags counts and `0` does not. `supportedBy` names nested objects to look inside as well as the record's own fields, because fare rules usually live one level down.
+Identifiers containing dots are safe, and were not always. Fare codes, SKUs and composite keys routinely look like `UA.102.Y`, which the adapter escapes so the path stays three segments instead of becoming five. Before that, the guard went looking for a record called `UA`, found nothing, and blocked a card that was entirely correct, which meant a host whose identifiers all looked like that had every bound card withheld.
+
+A claim topic is matched against the field names on the bound entity, with both sides reduced to crudely singularised word tokens, which is how `"bag included"` finds `bagsIncluded`. `supportedBy` names nested objects to look inside as well as the record's own fields, because fare rules usually live one level down.
+
+A claim can also *deny* its topic, and that is checked rather than ignored. "Non-refundable" on a fare that is not refundable is the truth, and an earlier version deleted it: the text contained the topic, the field said `false`, and the rule read that as unsupported. So the source has to agree with whichever way the claim was put. `2` bags supports "bag included" and contradicts "no bags"; `0` does the reverse. A denial about a field the record does not have at all is still removed, because a denial of something the source never mentions is the model inventing a fact with a minus sign in front of it.
 
 ### What the five outcomes do to the spec
 
@@ -394,16 +398,16 @@ pnpm --filter @genui-guard/evals check   # validates the config and the registry
 pnpm --filter @genui-guard/evals test    # runs both suites, in about a fifth of a second
 ```
 
-Measured over 51 legitimate components and 76 held-out failures, first on 17 October 2026 and unchanged since. The committed report at [evals/reports/latest.md](evals/reports/latest.md) carries no date or timing, so running the suites yourself reproduces it byte for byte rather than producing a diff. The cases are in [evals/cases](evals/cases).
+Measured over 56 legitimate components and 76 held-out failures. First run on 17 October 2026; the clean suite grew by five cases on the 21st, when a reviewer found two shapes it had no case for, and both bugs those cases exposed are fixed. The committed report at [evals/reports/latest.md](evals/reports/latest.md) carries no date or timing, so running the suites yourself reproduces it byte for byte rather than producing a diff. The cases are in [evals/cases](evals/cases).
 
 | Measure | Figure | |
 |---|---|---|
-| **False blocks**, legitimate components withheld | **2.0%**, 1 of 51 | the headline |
-| False modifications, something true taken out of one | 0.0%, 0 of 51 | |
+| **False blocks**, legitimate components withheld | **1.8%**, 1 of 56 | the headline |
+| False modifications, something true taken out of one | 0.0%, 0 of 56 | |
 | Detection, held-out failures caught | 51.3%, 39 of 76 | with the gap below |
-| Added latency, per element checked | 0.0033ms at p99 | nine policies and schema validation |
+| Added latency, per element checked | under 0.01ms at p99 | nine policies and schema validation |
 
-The latency row is there because a check that sits inside a stream has to be free in practice, not just in principle. That figure is a Vitest bench over an element with nine policies and the host's zod schema, so it includes the contract validation, which is the most expensive thing in the pipeline. A fifty-element page therefore costs well under a millisecond in total. The acceptance criterion was 5ms at p95 and the measurement is three orders of magnitude inside it, which is the whole argument for keeping the deterministic checks deterministic: they cost nothing, so there is no reason to batch them or move them off the critical path.
+The latency row is there because a check that sits inside a stream has to be free in practice, not just in principle. That figure is a Vitest bench over an element with nine policies and the host's zod schema, so it includes the contract validation, which is the most expensive thing in the pipeline. It measures around 0.005ms at p99 on a developer laptop and the table rounds up, because a benchmark that quotes four significant figures is quoting the machine it ran on: an earlier run under load reported a mean three hundred times higher, which is a good reason to state a bound rather than a number. A fifty-element page therefore costs well under a millisecond in total. The acceptance criterion was 5ms at p95 and the measurement is three orders of magnitude inside it, which is the whole argument for keeping the deterministic checks deterministic: they cost nothing, so there is no reason to batch them or move them off the critical path.
 
 The single false block is the one I would have predicted and could not have priced without measuring: a legitimate `repeat` over the loaded fares, with properties reading json-render's `$item`. The guard blocks an expression in a bound property, because a template can interpolate a model-written fragment, and `$item` is indistinguishable to it from one. The suite carries five expression cases and this is the only one that fires, which is not the rule behaving inconsistently: the other four put a template, a conditional or a computed value on properties that are *not* bound, where the guard has nothing to attribute and does not look, or use `$bindState`, which is a direct reference like `$state`. Only `$item` inside a `repeat` lands on a bound property. So iteration over verified data is the cost of that rule, and softening it is now a decision with a number attached rather than a matter of taste.
 
@@ -433,7 +437,7 @@ The accessibility family is 2 of 3, and the miss is the same kind of thing: thos
 
 The binding family is 11 of 12 for a reason that is configuration rather than code. Verification covers the properties a host declares bound, and the demo binds airline, price and stops. The missed case transposes a *departure time*, which is not bound, so a card can still pair one flight's schedule with another's price. Binding `depart` and `arrive` would catch it, and the demo does not, which is the sort of gap `genui-guard check` is there to make visible.
 
-Nothing in the last four rows was caught, and that is the shape of the limitation rather than a bug to fix with better keywords. `dropUnsourcedClaims` matches configured topics against the field names on the source record, so "Refundable" on a non-refundable fare is caught and "Cancel any time for a full refund" on the same fare is not. What it buys for that missed recall is precision: across 51 legitimate components it removed nothing true, which is why it is safe to leave switched on while the recall problem gets solved properly. A semantic check is the first item on [the roadmap](ROADMAP.md).
+Nothing in the last four rows was caught, and that is the shape of the limitation rather than a bug to fix with better keywords. `dropUnsourcedClaims` matches configured topics against the field names on the source record, so "Refundable" on a non-refundable fare is caught and "Cancel any time for a full refund" on the same fare is not. What it buys for that missed recall is precision: across 56 legitimate components it removed nothing true, which is why it is safe to leave switched on while the recall problem gets solved properly. A semantic check is the first item on [the roadmap](ROADMAP.md).
 
 ### Why a semantic check belongs behind the stream rather than inside it
 

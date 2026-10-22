@@ -300,3 +300,30 @@ describe("fromJsonRender on something that is not a catalog", () => {
     }
   });
 });
+
+/**
+ * Identifiers with dots in them, which is what fare codes, SKUs and composite
+ * keys look like. Splitting on every dot made "/fares/UA.102.Y/price" into five
+ * segments, so the guard looked for a record called "UA", found nothing, and
+ * blocked a card that was entirely correct. A host whose ids all look like that
+ * saw every bound card withheld.
+ */
+describe("record identifiers containing dots", () => {
+  it("keeps the identifier in one piece through the round trip", () => {
+    const pointer = "/fares/UA.102.Y/price";
+    const path = pointerToPath(pointer);
+
+    expect(path).toBe("fares.UA\\.102\\.Y.price");
+    expect(pathToPointer(path)).toBe(pointer);
+  });
+
+  it("still handles ordinary identifiers unchanged", () => {
+    expect(pointerToPath("/fares/HA-2041/price")).toBe("fares.HA-2041.price");
+    expect(pathToPointer("fares.HA-2041.price")).toBe("/fares/HA-2041/price");
+  });
+
+  it("survives a dot and an RFC 6901 escape in the same segment", () => {
+    const pointer = "/fares/a~1b.c/price";
+    expect(pathToPointer(pointerToPath(pointer))).toBe(pointer);
+  });
+});

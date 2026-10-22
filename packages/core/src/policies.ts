@@ -31,10 +31,22 @@ export function dropUnsourcedClaims(opts: {
   }));
 
   const unsupported = (text: string, entity: Record<string, unknown> | undefined) =>
-    patterns.find(
-      ({ topic, re }) =>
-        re.test(text) && !(entity && claimSupported(entity, topic, opts.supportedBy)),
-    );
+    patterns.find(({ topic, re }) => {
+      const match = re.exec(text);
+      if (!match) return false;
+      if (!entity) return true;
+
+      const evidence = claimEvidence(entity, topic, opts.supportedBy);
+      // No field for this topic at all: unsourced whichever way it is phrased.
+      if (evidence === undefined) return true;
+
+      // A claim asserts the topic or denies it, and the source has to agree
+      // with whichever was asserted. "Non-refundable" on a fare that is not
+      // refundable is the truth, and stripping it takes a warning away from
+      // the person about to buy. This is the whole reason evidence is three
+      // states rather than a boolean.
+      return evidence !== !isNegated(text, match.index);
+    });
 
   return {
     name: "dropUnsourcedClaims",
@@ -91,6 +103,21 @@ export function dropUnsourcedClaims(opts: {
   };
 }
 
+const NEGATORS = /\b(no|not|non|without|never|excludes?|excluding)\s*-?\s*$/i;
+
+/**
+ * Whether the claim denies its topic rather than asserting it.
+ *
+ * Only the words immediately before the match count, so "Refundable, no change
+ * fees" reads as a positive refund claim rather than a negated one: the "no"
+ * belongs to the change fee, not to the refund. Crude, and crude in the right
+ * direction, because the cost of a false negation is keeping a claim that
+ * should have gone rather than deleting one that was true.
+ */
+function isNegated(text: string, at: number): boolean {
+  return NEGATORS.test(text.slice(Math.max(0, at - 24), at));
+}
+
 /**
  * Field names and claim topics are written by different people in different
  * styles: a topic reads "bag included" and the field is `bagsIncluded`. Matching
@@ -118,11 +145,17 @@ function affirms(value: unknown): boolean {
   return false;
 }
 
-function claimSupported(
+/**
+ * What the source says about a topic: `true` when a matching field affirms it,
+ * `false` when a matching field denies it, and `undefined` when there is no
+ * field for it at all. The third state is what lets a denial be verified
+ * instead of deleted.
+ */
+function claimEvidence(
   entity: Record<string, unknown>,
   topic: string,
   supportedBy: string[] | undefined,
-): boolean {
+): boolean | undefined {
   // The entity's own fields always count. `supportedBy` names extra nested
   // places to look, such as a fare's rules object, rather than replacing the
   // root. Treating it as a replacement strips true claims from entities that
@@ -131,14 +164,18 @@ function claimSupported(
   const haystacks: unknown[] = [entity, ...(supportedBy ?? []).map((f) => entity[f])];
   const wanted = tokens(topic);
 
+  let found: boolean | undefined;
   for (const h of haystacks) {
     if (h === null || typeof h !== "object") continue;
     for (const [field, value] of Object.entries(h as Record<string, unknown>)) {
       if (tokens(field) !== wanted) continue;
+      // An affirming field anywhere wins, since rules are often duplicated
+      // between a record and its nested rule object.
       if (affirms(value)) return true;
+      found = false;
     }
   }
-  return false;
+  return found;
 }
 
 export function excludeWhere(
