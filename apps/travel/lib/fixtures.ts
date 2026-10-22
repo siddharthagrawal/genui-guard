@@ -16,7 +16,8 @@ export type Chaos =
   | "wrongStops"
   | "ungatedBook"
   | "staffOnly"
-  | "badImageHost";
+  | "badImageHost"
+  | "staleData";
 
 export const CHAOS_LABELS: Record<Chaos, { title: string; detail: string }> = {
   literalPrice: {
@@ -51,9 +52,16 @@ export const CHAOS_LABELS: Record<Chaos, { title: string; detail: string }> = {
     title: "Unsafe URL",
     detail: "A hotel photo loaded from a host nobody approved.",
   },
+  staleData: {
+    title: "Stale source data",
+    detail: "The search ran nine minutes ago, and the fares may have moved since.",
+  },
 };
 
 export const ALL_CHAOS: Chaos[] = Object.keys(CHAOS_LABELS) as Chaos[];
+
+/** How long ago the stale-data switch pretends the search ran. */
+export const STALE_AGE_MS = 9 * 60_000;
 
 export type ToolCall = { name: string; args: string; resultCount: number };
 

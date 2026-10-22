@@ -17,6 +17,11 @@ export default defineConfig<JsonRenderSpec>({
   tools: standardTurn,
   ctx: { session: { role: "customer" } },
 
+  // The demo's own config sets no tolerance, so the suite sets one here to
+  // exercise the outcome at all. Five minutes is the sort of window a fare
+  // search would use.
+  staleAfterMs: 5 * 60_000,
+
   /**
    * The adapter. The CLI never sees a json-render type; it asks what reached the
    * renderer and gets back an output to search, the ids that were withheld, and

@@ -159,3 +159,15 @@ It helps to see these as answering two different questions.
 That split is why bindings alone are not enough, even though they are the stronger mechanism. A perfectly bound card can still promise free cancellation no fare rule supports, show a hotel with no rooms left, expose a staff-only refund override to a customer, fire a booking without asking, or load an image from a host nobody approved. Every one of those is a property of the composition rather than of any single value, which is exactly what a binding cannot express.
 
 There is a practical consequence that matters for adoption. A team gets most of the rule-based value immediately, because rules need no change to how their application is built. Bindings require loading tool results into state the renderer can reference, and that is the part that takes real work. So adoption does not have to happen all at once, and the order that works is rules first, bindings when you are ready.
+
+---
+
+## What is a turn, and how long does trust last?
+
+A turn is one round of the conversation: the user asks, the host calls its tools, the model composes an interface, the page appears. `recordToolResult` says *for this turn, this is the real data*, and the reserved namespace exists for exactly that long.
+
+Nothing survives a turn boundary by itself, and that is deliberate. A follow-up that calls no tool, "book the second one", has to be handed the earlier results again, which is an in-process call against data already in session rather than a second search. Recording the same tool's same data twice is accepted; two different results claiming one namespace still throws, because that is a genuine ambiguity about what is true.
+
+Age is separate from provenance and is checked separately. A reference proves a value came from a tool result; it says nothing about whether that result is still current. With `staleAfterMs` in the config, `at` on the result and `now` on the context, an element reading data older than the tolerance is annotated with its age. It is never blocked: the card is probably still accurate, and the authoritative check belongs at the transaction, which is where commerce has always put it. Core reads no clock, so every one of those numbers comes from the host and the same turn replays to the same verdict.
+
+Turns are released explicitly with `endTurn`, and the oldest is evicted once `maxTurns` is exceeded.

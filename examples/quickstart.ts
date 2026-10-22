@@ -66,9 +66,12 @@ guard.recordToolResult({
   entity: "fares",
   key: "fareId",
   data: fares,
+  // Optional. Only read when the config sets staleAfterMs and the context
+  // carries `now`, because core never reads a clock of its own.
+  at: Date.now(),
 });
 
-const ctx = { turnId, session, budget };
+const ctx = { turnId, session, budget, now: Date.now() };
 
 // ---------------------------------------------------------------------------
 // Then one of three, depending on what the model handed you.
@@ -99,3 +102,12 @@ export async function guardStreamedPatches() {
 declare const specStream: ReadableStream<GuardEvent>;
 
 export const safe = specStream.pipeThrough(guard.stream(ctx));
+
+/**
+ * When the turn is finished and its traces have been read. Turns are also
+ * evicted oldest-first past `maxTurns`, so forgetting this leaks nothing
+ * unbounded, but a long-lived guard is tidier with it.
+ */
+export function finished() {
+  guard.endTurn(turnId);
+}

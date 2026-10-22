@@ -26,6 +26,8 @@ export type TurnState = {
   record(entity: string, id: string): Record<string, unknown> | undefined;
   /** The field naming a record's identifier, as given at record time. */
   keyField(entity: string): string | undefined;
+  /** When the host fetched an entity's data, if it said. */
+  loadedAt(entity: string): number | undefined;
   /**
    * Model-authored state. Kept outside reserved namespaces.
    *
@@ -172,6 +174,8 @@ export function createTurnState(turnId: string): TurnState {
   /** Host data, by entity namespace. The guard is the only writer. */
   const host = new Map<string, Record<string, unknown>>();
   const keyFields = new Map<string, string>();
+  const loadedAt = new Map<string, number>();
+  const writers = new Map<string, string>();
   /** Model-authored state, outside reserved namespaces. */
   const modelState: Record<string, unknown> = {};
 
@@ -179,14 +183,27 @@ export function createTurnState(turnId: string): TurnState {
 
   const api: TurnState = {
     reserve(result) {
+      const incoming = normalise(result);
+
       if (host.has(result.entity)) {
-        throw guardError("GUARD_E_DUPLICATE_ENTITY", {
-          turnId,
-          entity: result.entity,
-        });
+        // Re-recording the same tool's same data is what a host replaying a
+        // previous turn's results does, and it is not a conflict: nothing is
+        // ambiguous about being told the same thing twice. A different tool, or
+        // different data, is the ambiguity the error exists for and still
+        // throws. Both have to match, because two tools agreeing by coincidence
+        // is still two writers for one namespace.
+        const same =
+          writers.get(result.entity) === result.toolName &&
+          JSON.stringify(host.get(result.entity)) === JSON.stringify(incoming);
+        if (!same) {
+          throw guardError("GUARD_E_DUPLICATE_ENTITY", { turnId, entity: result.entity });
+        }
       }
-      host.set(result.entity, normalise(result));
+
+      host.set(result.entity, incoming);
+      writers.set(result.entity, result.toolName);
       if (result.key) keyFields.set(result.entity, result.key);
+      if (typeof result.at === "number") loadedAt.set(result.entity, result.at);
     },
 
     isReserved(path) {
@@ -217,6 +234,8 @@ export function createTurnState(turnId: string): TurnState {
     },
 
     keyField: (entity) => keyFields.get(entity),
+
+    loadedAt: (entity) => loadedAt.get(entity),
 
     applyModelPatch(path, value) {
       if (api.isReserved(path)) {

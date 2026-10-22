@@ -109,6 +109,7 @@ Every decision below is recorded in a trace.
 | Mixed records | One card with this airline's name and a cheaper flight's price | Block |
 | Unavailable item | A sold out hotel in the results | Block |
 | Unmet preference | A fare over the user's stated budget | Annotate, reported beside the spec for your app to place |
+| Ageing data | A fare verified against a search that ran nine minutes ago | Annotate, with the age, for your app to resolve |
 | Unpermitted component | A staff only refund override shown to a customer | Block |
 | Unconfirmed action | `book` fires on a single click | Gate behind confirmation |
 | Unsafe URL | A `javascript:` scheme, or an unapproved image host | Repair, URL removed |
@@ -281,9 +282,12 @@ guard.recordToolResult({
   entity: "fares",
   key: "fareId",
   data: fares,
+  // Optional. Only read when the config sets staleAfterMs and the context
+  // carries `now`, because core never reads a clock of its own.
+  at: Date.now(),
 });
 
-const ctx = { turnId, session, budget };
+const ctx = { turnId, session, budget, now: Date.now() };
 
 // Then one of three, depending on what the model handed you.
 
@@ -295,6 +299,9 @@ const streamed = await guardEvents(guard, patchesToEvents(jsonl), ctx);
 
 /** 3. Your own transport: classified events in, safe events out. */
 const safe = specStream.pipeThrough(guard.stream(ctx));
+
+// When the turn is done and you have read its traces.
+guard.endTurn(turnId);
 ```
 
 Most integrations are the first one. `spec` is safe to render, `dropped` is the ids that were withheld so you can show a gap if you want to, and `traces` is every decision including the allows.
@@ -333,6 +340,20 @@ const { spec, dropped, annotations, traces } = await guardSpec(guard, modelSpec,
 The reasoning is the same one that stops the guard filling a gap where a blocked card used to be: writing the note into a property means choosing which property, and overwriting whatever the model had put there. Your application knows which property is for this and the guard does not, so the guard reports and you attach. The travel demo does exactly that in about twelve lines of its own code, writing into its cards' `note` property only where the model left it empty, which is what puts "Over your stated budget" on screen there.
 
 **Allow** does nothing except emit a trace entry, which is the point: no silent changes, including no silent approvals.
+
+### What a turn is, and why it matters
+
+A turn is one round of the conversation: the user asks, your server searches, the model composes, the page appears. Trust is scoped to that round. When you record a tool result you are saying *for this answer, these are the real fares*, and the guard only vouches for cards pointing at them.
+
+Conversations have more than one round, so two things follow and neither is optional.
+
+**A follow-up that searches nothing still has to hand the data over.** "Book the second one" calls no tool, and without a tool result the guard has nothing to verify the summary against and withholds it. Record the fares again. That is an in-process call against data already in your session, not a second search, and recording the same tool's same data twice is accepted rather than treated as a conflict. Carrying forward by re-recording is deliberate rather than a missing feature: it keeps "verified" meaning *the host vouched for this during this answer*, which is a tighter claim than *someone vouched for this at some point*.
+
+**Verified does not mean current, and the guard will say so if you let it.** Set `staleAfterMs` in the config, pass `at` when you record a result and `now` on the context, and an element reading data older than your tolerance is annotated with its age rather than withheld. All three are required, so nothing changes for a host that sets none. Core reads no clock of its own, because a check that consults one cannot be replayed in an incident review.
+
+Staleness annotates rather than blocks for the same reason an over-budget fare does: the card is probably still right, hiding it leaves an unexplained gap, and the authoritative check belongs where it has always belonged in commerce, at the transaction. Your booking call re-prices and refuses. What the guard is for is making sure a nine-minute-old price is not presented as *verified* without qualification.
+
+Turns are released when you call `endTurn`, and the oldest is evicted once `maxTurns` is passed, a hundred by default. Before that, nothing was ever released, so a guard held for the life of a server retained every turn it had seen.
 
 ### Your prompt has to ask for references
 

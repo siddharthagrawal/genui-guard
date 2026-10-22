@@ -64,13 +64,16 @@ type Guard = {
   stream(ctx: Ctx): TransformStream<GuardEvent, GuardEvent>
   wrap(events: AsyncIterable<GuardEvent>, ctx: Ctx): AsyncIterable<GuardEvent>
   traces(turnId: string): TraceEntry[]
+  endTurn(turnId: string): void          // release a turn's results and traces
 }
 
 type ToolResult = {
   turnId: string
   toolName: string
   entity: string              // reserved state namespace this populates, e.g. "fares"
+  key?: string                // field identifying a record in an array
   data: unknown
+  at?: number                 // when the host fetched it; host-supplied, never a clock read
 }
 
 type ComponentRules = {
@@ -188,7 +191,7 @@ First published on 17 October 2026, all three at `0.1.0`: core, the json-render 
 
 Two releases followed, and the shape of them is worth recording. The adapter went to `0.1.1` within a day because its README claimed it called `catalog.validate()` and json-render's resolvers, which the shipped code never did: a tarball is immutable, so a wrong sentence in a published README costs a version. Then all three went to `0.2.0` once an outside developer's findings were fixed, and the thing to notice is that `core@0.1.0` sat on npm for three days still throwing raw TypeErrors at a malformed event, because the fixes were committed and not released. Publishing is a separate act from merging, and a fix nobody can install is not shipped.
 
-Core and the adapter went to `0.3.0` on 21 October for two correctness fixes an outside reviewer found by reading the README against the code: the claim policy was deleting honest negative claims, and a record identifier containing a dot broke path resolution outright. The CLI stayed at `0.2.0`, since nothing in it changed. Both fixes arrived with eval cases written to fail first, and both covered shapes the clean suite had no case for, which is why it had been reporting a 0.0% false-modification rate while one of the bugs was live. The command is `pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`; `evals` is private and matches the filter, so pnpm skips it.
+All three went to `0.4.0` on 22 October for the cross-turn work: `endTurn`, a bound on retained turns, idempotent re-recording, and freshness as an annotation. The CLI moved with them because its config passes the new options through. Before that, core and the adapter went to `0.3.0` on 21 October for two correctness fixes an outside reviewer found by reading the README against the code: the claim policy was deleting honest negative claims, and a record identifier containing a dot broke path resolution outright. The CLI stayed at `0.2.0`, since nothing in it changed. Both fixes arrived with eval cases written to fail first, and both covered shapes the clean suite had no case for, which is why it had been reporting a 0.0% false-modification rate while one of the bugs was live. The command is `pnpm release` from the root, which is `pnpm --filter "@genui-guard/*" publish --access public`; `evals` is private and matches the filter, so pnpm skips it.
 
 Four things about that first publish are worth not rediscovering.
 
@@ -213,5 +216,7 @@ The `@genui-guard` scope was reserved ahead of time by creating a free npm organ
 ## Open questions
 
 Carried deliberately rather than guessed at.
+
+How the reserved namespace behaves across turns is settled, and the entry in `docs/decisions.md` carries the reasoning. Every turn stands alone, re-recording is how data carries forward and is no longer a conflict, staleness annotates rather than blocks when the host supplies a tolerance and a time, and turns are released by `endTurn` or evicted oldest-first past `maxTurns`. The gap had two halves: a follow-up that searched nothing had its card withheld, and a reused turn identifier let week-old data keep validating silently.
 
 Whether blocking on `expr` in a bound prop is too strict now has a number rather than an opinion. It is the only false block in the clean suite, 1 of 51, and the case it fires on is json-render's own `repeat` with `$item` properties, which is ordinary renderer usage rather than an edge case. The other four expression cases pass, so a template or a computed value on a property that is not bound is already fine. The question left is narrower than the original one: whether `$item` inside a `repeat` over a reserved namespace can be attributed to a record, which it probably can, since the collection being iterated is the host's. How the reserved namespace should behave across turns, since stale data from a previous turn is a real failure the current design does not address. Whether `maskFields` belongs in v1 at all, given it has no demo. And whether `check()` on a single element is worth keeping in the public surface once `stream()` works, or whether it should be test-only.

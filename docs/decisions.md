@@ -110,6 +110,26 @@ What I gave up is tidy reason strings for those hosts: a message about `fares.UA
 
 ---
 
+## What does "verified" mean an hour later?
+
+Trust was scoped to a turn, and a turn is one round of the conversation: the user asks, the host searches, the model composes, the page appears. The guard had a boundary and no clock, and that left a host choosing between two bad outcomes without being told it was choosing.
+
+Give every turn a fresh identifier and ordinary follow-ups break. "Book the second one" calls no tool, so nothing is recorded, so the summary card has nothing to verify against and is withheld. The user asked the most natural question available and the page came back empty. The error even read as a setup mistake, which sent people looking for a bug they did not have.
+
+Reuse one identifier for the conversation and the opposite happens. Turn one's fares keep validating indefinitely: the seat sells, the price moves, and the guard still says `allow` with a clean trace, because a reference resolved into host-loaded data. That is the guard vouching for something it cannot know is still true, and it fails in the most expensive direction, on the screen where someone is about to pay.
+
+Three decisions came out of it.
+
+**Every turn stands alone, and re-recording is how data carries forward.** A host that needs turn one's fares in turn two hands them over again. That is an in-process call against data already in session, not a second search, so it costs a function call rather than a network round trip. Recording the same tool's same data twice is now accepted rather than treated as a conflict, which it never should have been. I considered a carry-forward API and rejected it: one more public function, to express something re-recording already says, while making "verified" mean "someone vouched for this at some point" instead of "the host vouched for this during this answer".
+
+**Staleness annotates rather than blocks, and this is where a reader changed my mind.** My first answer was to block. That was wrong for the same reason blocking an over-budget fare is wrong: the data is probably still accurate, the card is honest, and withholding it leaves the unexplained gap annotation exists to avoid. Classic commerce settled this long ago, and the pattern is right: the listing price is a cache and the transaction is authoritative, so the booking call re-prices and refuses. genui-guard is not trying to replace that. What it must not do is present week-old data as *verified*, because that lends the data credibility it has not earned. So it reports the age and the host decides, which is the annotation pattern already in place and needed no new mechanism.
+
+**The host supplies the clock.** Core reads no time of its own, because a check that consults a clock is not deterministic and cannot be replayed in an incident review. A tool result carries an optional `at`, the context carries an optional `now`, and with either missing nothing is checked. The cost is ceremony: three things have to line up before staleness is noticed at all, and a host that sets none keeps exactly today's behaviour.
+
+The retention bug was the unglamorous half. Nothing ever released a turn, so a guard held for the life of a server kept every turn's tool results and traces forever. There is an `endTurn` for the tidy path and an oldest-first bound for the rest, defaulting to a hundred turns. The demonstration never showed it because it builds a guard per request, and no eval case could, because every case in both suites is a single turn.
+
+---
+
 ## Why not offer a substitute when something is blocked?
 
 Blocking a sold out hotel leaves a gap in a results list, and the tempting next step is to fill it with the next available option. I decided not to.

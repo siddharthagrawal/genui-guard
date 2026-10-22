@@ -50,6 +50,11 @@ export const guardConfig: GuardConfig = {
   ],
 };
 
-export function buildGuard() {
-  return createGuard(guardConfig);
+/**
+ * Overrides are for the things only a request knows: how old this app is
+ * willing to let its fare data get. The policy set and the registry stay fixed,
+ * which is what lets the eval suites run this exact configuration.
+ */
+export function buildGuard(over: Partial<GuardConfig> = {}) {
+  return createGuard({ ...guardConfig, ...over });
 }

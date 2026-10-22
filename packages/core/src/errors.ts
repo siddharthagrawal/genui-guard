@@ -53,8 +53,14 @@ export const ERRORS = {
   GUARD_E_NO_TOOL_RESULT: {
     message: (d) =>
       `No tool result recorded for turn "${d.turnId}" before checking element "${d.elementId}".`,
+    // The second half matters as much as the first. A follow-up turn such as
+    // "book the second one" calls no tool at all, and the host has done nothing
+    // wrong: trust is scoped to a turn, so the data has to be handed over again.
+    // Reading this as a setup mistake sent people looking for a bug they did
+    // not have.
     hint: () =>
-      `Call guard.recordToolResult before piping the turn's UI stream. Without a source of truth every bound prop would fail, which is correct but unhelpful.`,
+      `Call guard.recordToolResult before piping the turn's UI stream. If this turn made no tool call, which is normal for a follow-up like "book the second one", record the results the earlier turn loaded again: trust is scoped to one turn, so re-recording is how data carries forward, and recording the same data twice is accepted rather than treated as a conflict.`,
+    docsPath: "docs/concepts.md",
   },
   GUARD_E_POLICY_THREW: {
     message: (d) => `Policy "${d.policy}" threw while checking "${d.component}": ${d.cause}`,
@@ -92,6 +98,11 @@ export const ERRORS = {
     message: (d) => `The value passed to fromJsonRender is not a catalog: ${d.received}.`,
     hint: () =>
       `Pass the object returned by json-render's defineCatalog, which carries componentNames and the per-component prop schemas. A plain object literal will not do, because the adapter reads the catalog's own schemas rather than a second description of them.`,
+  },
+  GUARD_E_INVALID_MAX_TURNS: {
+    message: (d) => `maxTurns must be a whole number of at least 1, received ${d.received}.`,
+    hint: () =>
+      `Set maxTurns to how many turns the guard should remember, such as 100, or omit it for the default. Call endTurn when a turn is finished to release one sooner.`,
   },
   GUARD_E_INVALID_HOLD_TIMEOUT: {
     message: (d) => `holdTimeoutMs must be a positive number, received ${d.received}.`,

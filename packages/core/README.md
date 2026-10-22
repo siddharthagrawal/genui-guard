@@ -61,6 +61,8 @@ guard.recordToolResult({
 const safe = agentEvents.pipeThrough(guard.stream({ turnId, session }));
 ```
 
+Trust is scoped to one turn. A follow-up that calls no tool has to be handed the earlier results again, which is an in-process call rather than a second search, and recording the same tool's same data twice is accepted rather than treated as a conflict. Set `staleAfterMs`, pass `at` when recording and `now` on the context, and an element reading data older than your tolerance is annotated with its age rather than withheld: the card is probably still right and the authoritative check belongs at your transaction. Core reads no clock, so all three values come from you. Release a turn with `endTurn`, or let the oldest be evicted past `maxTurns`.
+
 Hosts using a component catalog go through an adapter instead of listing components by hand. See [@genui-guard/json-render](https://www.npmjs.com/package/@genui-guard/json-render).
 
 ## What this does not catch

@@ -1,7 +1,13 @@
 import type { GuardEvent, PropValue } from "@genui-guard/core";
 import { guardEvents, guardSpec, type JsonRenderSpec } from "@genui-guard/json-render";
 import { keyed } from "../../../lib/data";
-import { buildTurn, type Chaos, type Injection, type QueryId } from "../../../lib/fixtures";
+import {
+  buildTurn,
+  STALE_AGE_MS,
+  type Chaos,
+  type Injection,
+  type QueryId,
+} from "../../../lib/fixtures";
 import { buildGuard } from "../../../lib/guard";
 import { liveStatus, runLiveTurn } from "../../../lib/live";
 
@@ -70,7 +76,11 @@ async function handleReplay(
     });
   }
 
-  const guard = buildGuard();
+  // A tolerance only the host can set, and a time only the host can read: core
+  // is deterministic and never looks at a clock of its own.
+  const stale = chaos.includes("staleData");
+  const guard = buildGuard({ staleAfterMs: 5 * 60_000 });
+  const loadedAt = Date.now() - (stale ? STALE_AGE_MS : 0);
   const turnId = `turn-${Date.now()}`;
 
   guard.recordToolResult({
@@ -79,6 +89,7 @@ async function handleReplay(
     entity: "fares",
     key: "fareId",
     data: turn.fares,
+    at: loadedAt,
   });
   guard.recordToolResult({
     turnId,
@@ -86,13 +97,17 @@ async function handleReplay(
     entity: "hotels",
     key: "hotelId",
     data: turn.hotels,
+    at: loadedAt,
   });
 
   // The one line a host adds. Deleting it is how a host removes genui-guard.
+  if (stale) turn.injections.push({ chaos: "staleData", elementId: `fare-${turn.fares[0]?.fareId}` });
+
   const { spec, dropped, annotations, traces } = await guardSpec(guard, turn.spec, {
     turnId,
     session: { role: "customer" },
     budget,
+    now: Date.now(),
   });
 
   return Response.json({
@@ -228,7 +243,10 @@ async function handleLive(
     hotels: keyed(turn.hotels, "hotelId"),
   };
 
-  const guard = buildGuard();
+  // Live mode injects nothing, so its data is as fresh as the search that just
+  // ran. The tolerance is still set, because that is what the app would ship.
+  const guard = buildGuard({ staleAfterMs: 5 * 60_000 });
+  const loadedAt = Date.now();
   const turnId = `live-${Date.now()}`;
 
   if (turn.fares.length > 0) {
@@ -269,6 +287,7 @@ async function handleLive(
     turnId,
     session: { role: "customer" },
     budget,
+    now: Date.now(),
   });
 
   return Response.json({

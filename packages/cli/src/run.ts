@@ -20,6 +20,8 @@ export async function runCase(config: EvalConfig, kase: EvalCase): Promise<CaseO
     registry: config.registry,
     ...(config.policies ? { policies: config.policies } : {}),
     ...(config.holdTimeoutMs ? { holdTimeoutMs: config.holdTimeoutMs } : {}),
+    ...(config.staleAfterMs ? { staleAfterMs: config.staleAfterMs } : {}),
+    ...(config.maxTurns ? { maxTurns: config.maxTurns } : {}),
   });
 
   for (const result of kase.tools ?? config.tools ?? []) {

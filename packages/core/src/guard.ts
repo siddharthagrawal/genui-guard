@@ -1,5 +1,6 @@
 import { checkA11y } from "./a11y.js";
 import { checkContract } from "./contract.js";
+import { checkFreshness } from "./freshness.js";
 import { mergeResults } from "./decisions.js";
 import { guardError, GuardError } from "./errors.js";
 import { checkProvenance } from "./provenance.js";
@@ -22,6 +23,7 @@ import type {
 } from "./types.js";
 
 const DEFAULT_HOLD_MS = 5000;
+const DEFAULT_MAX_TURNS = 100;
 
 export function createGuard(config: GuardConfig): Guard {
   const hold = config.holdTimeoutMs ?? DEFAULT_HOLD_MS;
@@ -36,11 +38,36 @@ export function createGuard(config: GuardConfig): Guard {
   const states = new Map<string, TurnState>();
   const traces = new Map<string, (TraceEntry | StateTraceEntry)[]>();
 
+  const maxTurns = config.maxTurns ?? DEFAULT_MAX_TURNS;
+  if (!Number.isInteger(maxTurns) || maxTurns < 1) {
+    throw guardError("GUARD_E_INVALID_MAX_TURNS", { received: String(config.maxTurns) });
+  }
+
+  const release = (turnId: string): void => {
+    states.delete(turnId);
+    traces.delete(turnId);
+  };
+
+  /**
+   * A guard held for the life of a server used to retain every turn it had ever
+   * seen, because nothing released one. Maps keep insertion order, so the
+   * oldest turn is the first key, and eviction is oldest-first once the bound
+   * is exceeded. `endTurn` is the tidy way; this is the safety net.
+   */
+  const evictIfNeeded = (): void => {
+    while (states.size > maxTurns) {
+      const oldest = states.keys().next().value;
+      if (oldest === undefined) return;
+      release(oldest);
+    }
+  };
+
   const stateFor = (turnId: string): TurnState => {
     let s = states.get(turnId);
     if (!s) {
       s = createTurnState(turnId);
       states.set(turnId, s);
+      evictIfNeeded();
     }
     return s;
   };
@@ -89,6 +116,10 @@ export function createGuard(config: GuardConfig): Guard {
       });
     }
     results.push(...checkProvenance(element, spec, state));
+
+    // How old the verified data is. Annotates, never blocks: see
+    // docs/decisions.md on why staleness is the host's to resolve.
+    results.push(...checkFreshness(element, spec, state, ctx, config.staleAfterMs));
 
     // 3. Policies.
     const entity = resolveEntity(element, spec, state);
@@ -399,6 +430,8 @@ export function createGuard(config: GuardConfig): Guard {
     },
 
     traces: (turnId) => traces.get(turnId) ?? [],
+
+    endTurn: (turnId) => release(turnId),
   };
 
   return guard;

@@ -78,6 +78,9 @@ export type EvalConfig<Spec = unknown> = {
   registry: Registry;
   policies?: Policy[];
   holdTimeoutMs?: number;
+  /** Passed through to the guard. Stale data annotates; it never blocks. */
+  staleAfterMs?: number;
+  maxTurns?: number;
   /** Tool results every case starts from, unless the case supplies its own. */
   tools?: ToolResult[];
   /** Context every case starts from, such as the session. */

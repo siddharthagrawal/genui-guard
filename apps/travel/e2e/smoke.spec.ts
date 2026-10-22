@@ -217,3 +217,27 @@ test("an over-budget fare is flagged and still rendered", async ({ page }) => {
   // Annotated, not withheld: nothing was removed from this page.
   await expect(page.getByText(/removed before this page rendered/)).toHaveCount(0);
 });
+
+/**
+ * The ninth switch, and the one that makes a point the others cannot: the data
+ * is real, the binding is correct, and the only thing wrong with the card is
+ * its age. So it renders, flagged, rather than disappearing. Hiding a probably
+ * correct fare helps nobody, and the authoritative check belongs at the
+ * booking call, which is where it has always belonged in commerce.
+ */
+test("stale data is flagged on the card, not withheld", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "genui-guard" }).click();
+
+  await page.getByText("Stale source data").click();
+
+  // The note the guard reported and this app chose to put on the card.
+  await expect(page.getByText(/Loaded 9m ago/).first()).toBeVisible();
+
+  // Still there, and nothing was removed to achieve it.
+  await expect(page.getByText("Harbor Air").first()).toBeVisible();
+  await expect(page.getByText(/removed before this page rendered/)).toHaveCount(0);
+
+  // The panel explains it in the guard's own words.
+  await expect(page.getByTestId("outcome-staleData")).toContainText(/9m ago/);
+});

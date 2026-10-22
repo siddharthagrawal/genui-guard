@@ -68,6 +68,15 @@ export type ToolResult = {
    */
   key?: string;
   data: unknown;
+  /**
+   * When the host fetched this, in epoch milliseconds. Supplied by the host
+   * rather than read from a clock, because core is deterministic: the same
+   * inputs have to produce the same decision on any machine on any day.
+   *
+   * Only meaningful alongside `staleAfterMs` in the config and `now` in the
+   * context. Without all three, freshness is not checked at all.
+   */
+  at?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -175,6 +184,11 @@ export type Session = {
 export type Ctx = {
   turnId: string;
   session?: Session;
+  /**
+   * The host's current time, in epoch milliseconds, used only to compare
+   * against a tool result's `at`. Core never reads a clock of its own.
+   */
+  now?: number;
   /** Arbitrary host values policies can read, for example a stated budget. */
   [key: string]: unknown;
 };
@@ -211,6 +225,23 @@ export type GuardConfig = {
    * The hold expires into a block rather than hanging. Default 5000.
    */
   holdTimeoutMs?: number;
+  /**
+   * How old a tool result may be before an element reading it is annotated,
+   * in ms. Off by default, because a guard that started expiring data on
+   * upgrade would be a surprise, and because staleness is only checkable when
+   * the host supplies both `at` on the result and `now` on the context.
+   *
+   * Stale data annotates rather than blocks. The card is probably still right,
+   * the user is better served by a note than by a gap, and the authoritative
+   * check belongs at the transaction. See docs/decisions.md.
+   */
+  staleAfterMs?: number;
+  /**
+   * How many turns to keep before the oldest is released, by insertion order.
+   * Default 100. A guard held for the life of a server would otherwise retain
+   * every turn's tool results and traces forever.
+   */
+  maxTurns?: number;
   /** Called for every decision, including allow. */
   onTrace?: (entry: TraceEntry | StateTraceEntry) => void;
 };
@@ -224,4 +255,10 @@ export type Guard = {
   stream(ctx: Ctx): TransformStream<GuardEvent, GuardEvent>;
   wrap(events: AsyncIterable<GuardEvent>, ctx: Ctx): AsyncIterable<GuardEvent>;
   traces(turnId: string): (TraceEntry | StateTraceEntry)[];
+  /**
+   * Releases a turn's tool results and traces. Call it when a turn is finished
+   * and its traces have been read. Turns are also evicted oldest-first once
+   * `maxTurns` is exceeded, so forgetting this leaks nothing unbounded.
+   */
+  endTurn(turnId: string): void;
 };

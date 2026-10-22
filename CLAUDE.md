@@ -13,9 +13,10 @@ These are the claims the product makes. Breaking one is a bug even if tests pass
 - **Never let an unchecked element reach the renderer.** Fail safe. Block or fall back, never crash, never pass through on error.
 - **Blocking is a tree edit.** Remove the element, prune its id from every parent's children, cascade to its subtree. Never emit a dangling reference.
 - **Every decision emits a trace entry, including `allow`.** No silent changes.
+- **Trust is scoped to one turn, and carrying data forward means recording it again.** Re-recording the same tool's same data is accepted; two different results claiming one namespace still throws. Stale data annotates and never blocks, because the card is probably right and the transaction is authoritative. Turns are released by `endTurn` or evicted past `maxTurns`; nothing may retain them forever.
 - **Decision precedence is `block > gate > repair > annotate > allow`.** Strictest wins. Conflicting repairs on one prop block.
 - **Repair is subtractive only.** Strip a claim, drop a URL, add alt text. Never rewrite a value to a different value by default.
-- **Core is deterministic.** Same input, same decision, every time. No network calls, no clock reads, no randomness in core.
+- **Core is deterministic.** Same input, same decision, every time. No network calls, no clock reads, no randomness in core. Freshness is the test of this: the host supplies `at` on a tool result and `now` on the context, and core compares them. Do not reach for `Date.now()` to make that easier.
 
 ## Rules
 

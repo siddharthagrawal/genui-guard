@@ -1,5 +1,5 @@
 import type { EvalCase } from "../../src/types.js";
-import { flight, hotelCard, ref, screen } from "../../src/fixtures.js";
+import { FARES, HOTELS, flight, hotelCard, ref, screen } from "../../src/fixtures.js";
 
 /**
  * The rest of a legitimate screen: containers, a trip summary, the approved
@@ -240,4 +240,68 @@ export const dottedIds: EvalCase[] = [
   },
 ];
 
-export const cases: EvalCase[] = [...base, ...dottedIds];
+/**
+ * Data older than the host tolerates. The point of these is the outcome: a
+ * stale card is annotated and still rendered, never withheld, because the card
+ * is probably still right and the authoritative check belongs at the
+ * transaction. A block here would be a false block.
+ */
+const LOADED_AT = 1_700_000_000_000;
+
+const stale: EvalCase[] = [
+  {
+    id: "clean-stale-data-is-annotated-not-withheld",
+    family: "annotate",
+    describe:
+      "A correctly bound fare whose data the host fetched nine minutes ago, with a five minute tolerance. The card has to survive, flagged.",
+    tools: [
+      {
+        turnId: "eval-turn",
+        toolName: "searchFlights",
+        entity: "fares",
+        key: "fareId",
+        data: FARES,
+        at: LOADED_AT,
+      },
+      {
+        turnId: "eval-turn",
+        toolName: "searchHotels",
+        entity: "hotels",
+        key: "hotelId",
+        data: HOTELS,
+        at: LOADED_AT,
+      },
+    ],
+    ctx: { now: LOADED_AT + 9 * 60_000 },
+    spec: screen({ card: flight("HA-2041") }),
+    expect: { kept: ["card"] },
+  },
+  {
+    id: "clean-fresh-data-is-not-flagged",
+    family: "annotate",
+    describe: "The same card a minute after the search, which is inside any sane tolerance.",
+    tools: [
+      {
+        turnId: "eval-turn",
+        toolName: "searchFlights",
+        entity: "fares",
+        key: "fareId",
+        data: FARES,
+        at: LOADED_AT,
+      },
+      {
+        turnId: "eval-turn",
+        toolName: "searchHotels",
+        entity: "hotels",
+        key: "hotelId",
+        data: HOTELS,
+        at: LOADED_AT,
+      },
+    ],
+    ctx: { now: LOADED_AT + 60_000 },
+    spec: screen({ card: flight("HA-2041") }),
+    expect: { kept: ["card"] },
+  },
+];
+
+export const cases: EvalCase[] = [...base, ...dottedIds, ...stale];
