@@ -352,6 +352,18 @@ export function restrictInputs(opts: { allow: string[] }): Policy {
   };
 }
 
+/**
+ * Masks a sensitive value the model wrote into a prop.
+ *
+ * It can only reach a literal, and that limit is worth stating rather than
+ * discovering. A bound property holds a reference, the renderer resolves it on
+ * the client against the host's own state, and the guard never touches that
+ * state: rewriting the reference into a masked string would break the binding
+ * it spent the rest of its effort insisting on, and masking the spec would not
+ * help anyway while the full value sits in the state the host hydrates. So a
+ * bound sensitive field is annotated rather than silently left alone, because
+ * the host is the only party that can redact it at the source.
+ */
 export function maskFields(fields: string[], visible = 4): Policy {
   const targets = new Set(fields);
 
@@ -362,6 +374,17 @@ export function maskFields(fields: string[], visible = 4): Policy {
 
       for (const [prop, value] of Object.entries(element.props)) {
         if (!targets.has(prop)) continue;
+
+        if (value.kind === "ref") {
+          out.push({
+            policy: "maskFields",
+            decision: "annotate",
+            reason: `${element.type}.${prop} is sensitive and arrives as a reference to "${value.path}", which the renderer resolves on the client, so masking it here would both break the binding and leave the full value in the state you hydrate. Redact it where that state is built.`,
+            note: `${prop} is not masked`,
+          });
+          continue;
+        }
+
         const text = literalString(value);
         if (!text || text.length <= visible) continue;
 

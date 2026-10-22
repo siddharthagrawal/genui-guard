@@ -71,6 +71,8 @@ Verification confirms that a component describes the record the model said it wa
 
 Claim checks read a claim as asserting its topic or denying it, and the source has to agree with whichever was meant, so an honest "Non-refundable" badge survives on a fare that is not refundable. They still look for particular words, so a refund promise phrased as "you can get your money back whenever you like" uses none of the vocabulary the rules recognise. The held-out eval suite puts a number on it: 0 of 18 paraphrased claims caught, against 3 of 5 when the same claim is written in the configured topic's own words. What that buys is precision, since across 51 legitimate components nothing true was removed.
 
+`maskFields` reaches a value the model typed and nothing else. A bound sensitive field is annotated rather than masked, because the renderer resolves the reference on the client against state the guard does not own: rewriting it would break the binding, and masking the spec would not help while the full value sits in the state the host hydrates. Redact it where that state is built.
+
 Role and input checks are defence in depth, **not authorisation**. They stop a confused model from rendering a staff control or a stray password field, and they do nothing to stop a client calling your API directly. Your backend must still enforce every permission.
 
 Full detail in [docs/concepts.md](https://github.com/siddharthagrawal/genui-guard/blob/main/docs/concepts.md).

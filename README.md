@@ -114,7 +114,7 @@ Every decision below is recorded in a trace.
 | Unconfirmed action | `book` fires on a single click | Gate behind confirmation |
 | Unsafe URL | A `javascript:` scheme, or an unapproved image host | Repair, URL removed |
 | Spoofed input | A password or card field outside an approved component | Block |
-| Exposed identifier | A loyalty number printed in full in a trip summary | Repair, all but the last four digits masked |
+| Exposed identifier | A loyalty number the model typed into a trip summary | Repair, all but the last four characters masked. A *bound* one is annotated instead, because the renderer resolves it on the client from state the guard does not own |
 | Inaccessible markup | A hotel photo with no alt text | Repair, otherwise block |
 
 Those first two rows are one mechanism, not two: any value the model typed into a bound property is blocked, whether the value happens to be right or wrong, and whether it arrived as a property or as a state patch. There is no repair for them. Rewriting a price to the correct one would assert something the model did not say, and [docs/decisions.md](docs/decisions.md) argues that at length under "Why block before repair?"; value comparison survives there as a documented migration path for hosts that cannot restructure, and no policy ships that performs it.
@@ -156,7 +156,9 @@ The full ecosystem analysis is in [docs/competitive-scan.md](docs/competitive-sc
 
 ## How does it work?
 
-The tool results the model fetched during the current turn are the source of truth for that turn, and `recordToolResult` is what loads them into the state paths the guard owns. As the interface streams in, the guard walks the spec as it arrives, runs its checks in order on each element, and applies the most restrictive outcome. Blocking beats gating, gating beats repairing, repairing beats annotating, and annotating beats allowing.
+The tool results the model fetched during the current turn are the source of truth for that turn, and `recordToolResult` is what loads them into the state paths the guard owns. As the interface streams in, the guard walks the spec as it arrives, runs its checks in order on each element, and applies the most restrictive outcome as the element's verdict. Blocking beats gating, gating beats repairing, repairing beats annotating, and annotating beats allowing.
+
+That ordering decides what the element's outcome is *called*, not which checks get to act. Only blocking short-circuits, because a withheld element has nothing left to modify. Gating, repairing and annotating touch different parts of the same element and all compose: a card can have its booking gated, an invented badge stripped and its age noted, in one pass, and the trace lists every finding while the verdict reads `gate`. The one case that does conflict is two policies repairing the same property to different values, which blocks, because picking a winner would mean asserting a value no policy agreed on.
 
 State patches get the same treatment as elements. A patch writing into a path that backs a bound property is rejected, because that path belongs to the host, while patches to everything else pass through untouched so ordinary interactive state keeps working.
 
@@ -187,11 +189,11 @@ pnpm i && pnpm --filter travel dev    # no API key needed
 # http://localhost:3000/?dev  developer panel open, every failure injected
 ```
 
-The deployment sets no environment variables at all, which is deliberate: with no `ANTHROPIC_API_KEY` there is nothing to spend and nothing to abuse, so live mode is disabled there and replay and chaos are deterministic server-side computation with no outbound calls. The same eleven browser tests run against it with `DEMO_URL=https://genui-guard.vercel.app pnpm --filter travel test`, so what is deployed is verified rather than assumed.
+The deployment sets no environment variables at all, which is deliberate: with no `ANTHROPIC_API_KEY` there is nothing to spend and nothing to abuse, so live mode is disabled there and replay and chaos are deterministic server-side computation with no outbound calls. The same twelve browser tests run against it with `DEMO_URL=https://genui-guard.vercel.app pnpm --filter travel test`, so what is deployed is verified rather than assumed.
 
 The layout is deliberate. Chat sits on the left, the agent-composed results in the centre, and genui-guard lives in a separate dark developer panel on the right that opens on demand. The default view is the product, with no sign that a guard exists, because that is what a user of such a travel app would see. Open that panel and you get a switch for each of eight representative failures, chosen from the table above to cover each outcome rather than to be exhaustive, and each one reports the decision it produced in the guard's own words, so you can read cause and effect from one switch rather than diffing two pages. `?dev` starts with all eight on, which is the fastest way to see the whole set; turn them off individually to isolate one.
 
-The demo has browser tests, which are also the fastest way to see every behaviour at once: `pnpm --filter travel exec playwright install` once for the browsers, then `pnpm --filter travel test` runs ten of them. Playwright starts its own server on port 3100 and stops it afterwards, so it neither collides with the dev server you may already have on 3000 nor needs you to start anything. They cover the user view, the developer panel, the chaos toggles, a gated booking and a surgical repair.
+The demo has browser tests, which are also the fastest way to see every behaviour at once: `pnpm --filter travel exec playwright install` once for the browsers, then `pnpm --filter travel test` runs twelve of them. Playwright starts its own server on port 3100 and stops it afterwards, so it neither collides with the dev server you may already have on 3000 nor needs you to start anything. They cover the user view, the developer panel, the chaos toggles, a gated booking and a surgical repair.
 
 There are three run modes. `replay` uses recorded output and spends no tokens. `chaos` rewrites that output with the failures you select. `live` calls a real model and injects nothing at all. It needs an `ANTHROPIC_API_KEY` in `apps/travel/.env.local`, which is the app directory rather than the repository root, since that is where Next looks; copy `apps/travel/.env.example` to start, and set `GENUI_GUARD_MODEL` if you want a different model. The reason live mode matters is that json-render's generated prompt instructs the model to "include realistic sample data in state", so a model following its renderer's own instructions invents fares without being asked to. Without a key, live mode is visibly disabled and the other two are unaffected.
 
@@ -203,7 +205,7 @@ genui-guard works with the catalog you already have, with `@json-render/core` su
 
 Install it alongside your existing setup.
 
-Publication was gated on the eval suites, so that the false-block rate was a measured number rather than a promise. It is 1.8%, measured the way described [further down](#what-do-the-evals-measure). All three packages are on npm.
+Publication was gated on the eval suites, so that the false-block rate was a measured number rather than a promise. It is 1.7%, measured the way described [further down](#what-do-the-evals-measure). All three packages are on npm.
 
 ```bash
 pnpm add @genui-guard/core zod                       # the guard
@@ -253,6 +255,11 @@ export const guard = createGuard({
       a11y: { requireAlt: ["imageAlt"] },
     },
   }),
+  // How old this app lets its fare data get before a card is flagged for it.
+  // Needs `at` on the tool result and `now` on the context, both below: core
+  // reads no clock of its own.
+  staleAfterMs: 5 * 60_000,
+
   policies: [
     p.requireBinding(), // on by default
     p.dropUnsourcedClaims({
@@ -419,12 +426,12 @@ pnpm --filter @genui-guard/evals check   # validates the config and the registry
 pnpm --filter @genui-guard/evals test    # runs both suites, in about a fifth of a second
 ```
 
-Measured over 56 legitimate components and 76 held-out failures. First run on 17 October 2026; the clean suite grew by five cases on the 21st, when a reviewer found two shapes it had no case for, and both bugs those cases exposed are fixed. The committed report at [evals/reports/latest.md](evals/reports/latest.md) carries no date or timing, so running the suites yourself reproduces it byte for byte rather than producing a diff. The cases are in [evals/cases](evals/cases).
+Measured over 58 legitimate components and 76 held-out failures. First run on 17 October 2026; the clean suite grew to 58 as reviewers found shapes it had no case for, and every bug those cases exposed is fixed. The committed report at [evals/reports/latest.md](evals/reports/latest.md) carries no date or timing, so running the suites yourself reproduces it byte for byte rather than producing a diff. The cases are in [evals/cases](evals/cases).
 
 | Measure | Figure | |
 |---|---|---|
-| **False blocks**, legitimate components withheld | **1.8%**, 1 of 56 | the headline |
-| False modifications, something true taken out of one | 0.0%, 0 of 56 | |
+| **False blocks**, legitimate components withheld | **1.7%**, 1 of 58 | the headline |
+| False modifications, something true taken out of one | 0.0%, 0 of 58 | |
 | Detection, held-out failures caught | 51.3%, 39 of 76 | with the gap below |
 | Added latency, per element checked | under 0.01ms at p99 | nine policies and schema validation |
 
@@ -458,13 +465,13 @@ The accessibility family is 2 of 3, and the miss is the same kind of thing: thos
 
 The binding family is 11 of 12 for a reason that is configuration rather than code. Verification covers the properties a host declares bound, and the demo binds airline, price and stops. The missed case transposes a *departure time*, which is not bound, so a card can still pair one flight's schedule with another's price. Binding `depart` and `arrive` would catch it, and the demo does not, which is the sort of gap `genui-guard check` is there to make visible.
 
-Nothing in the last four rows was caught, and that is the shape of the limitation rather than a bug to fix with better keywords. `dropUnsourcedClaims` matches configured topics against the field names on the source record, so "Refundable" on a non-refundable fare is caught and "Cancel any time for a full refund" on the same fare is not. What it buys for that missed recall is precision: across 56 legitimate components it removed nothing true, which is why it is safe to leave switched on while the recall problem gets solved properly. A semantic check is the first item on [the roadmap](ROADMAP.md).
+Nothing in the last four rows was caught, and that is the shape of the limitation rather than a bug to fix with better keywords. `dropUnsourcedClaims` matches configured topics against the field names on the source record, so "Refundable" on a non-refundable fare is caught and "Cancel any time for a full refund" on the same fare is not. What it buys for that missed recall is precision: across 58 legitimate components it removed nothing true, which is why it is safe to leave switched on while the recall problem gets solved properly. A semantic check is the first item on [the roadmap](ROADMAP.md).
 
 ### Why a semantic check belongs behind the stream rather than inside it
 
 The reason a semantic check is next rather than now is latency and determinism, and the shape it has to take follows from where each check can afford to sit. Everything today is tier one: structural, provenance, role, action and URL checks, deterministic and inline, adding no measurable time before first paint. A semantic check is tier two, and cannot go inline without putting a model call inside the stream. So it holds the free-text property while the card's shell renders, or it runs behind the stream and emits the same `drop` event the guard already uses when an element has to be withdrawn after the fact. The mechanism for revoking something already sent exists; what is missing is the judgement to put behind it.
 
-The two numbers come from different rules and it is worth not blurring them, because they fail in opposite directions. The false block is `requireBinding` refusing an expression in a bound property, which trades iteration ergonomics for provenance and costs 1 case in 51. The paraphrase gap is `dropUnsourcedClaims` matching lexically, which trades recall for precision and costs 18 cases in 18. One rule is too strict and the other is not strict enough, and no single adjustment improves both.
+The two numbers come from different rules and it is worth not blurring them, because they fail in opposite directions. The false block is `requireBinding` refusing an expression in a bound property, which trades iteration ergonomics for provenance and costs 1 case in 58. The paraphrase gap is `dropUnsourcedClaims` matching lexically, which trades recall for precision and costs 18 cases in 18. One rule is too strict and the other is not strict enough, and no single adjustment improves both.
 
 To keep the deterministic rules from being overfitted to the cases that score them, [docs/eval-protocol.md](docs/eval-protocol.md) freezes the held-out suite before any rule is touched, and the suites run the demo's shipped configuration rather than a second copy that could be tuned quietly. It also logs the only two case corrections made afterwards, both of them fixture errors rather than results: one case used a role name the application does not have, and one asserted something a second case contradicted.
 

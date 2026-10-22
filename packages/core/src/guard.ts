@@ -23,7 +23,7 @@ import type {
 } from "./types.js";
 
 const DEFAULT_HOLD_MS = 5000;
-const DEFAULT_MAX_TURNS = 100;
+const DEFAULT_MAX_TURNS = 1000;
 
 export function createGuard(config: GuardConfig): Guard {
   const hold = config.holdTimeoutMs ?? DEFAULT_HOLD_MS;
@@ -53,21 +53,43 @@ export function createGuard(config: GuardConfig): Guard {
    * seen, because nothing released one. Maps keep insertion order, so the
    * oldest turn is the first key, and eviction is oldest-first once the bound
    * is exceeded. `endTurn` is the tidy way; this is the safety net.
+   *
+   * It is a safety net and not a scheduler, so it has to be loud. Evicting a
+   * turn that is still in flight makes correct elements fail verification, and
+   * the first version of this did that silently under nothing worse than
+   * ordinary burst load. `maxTurns` must exceed the number of turns a process
+   * has open at once.
    */
-  const evictIfNeeded = (): void => {
+  const evictIfNeeded = (turnId: string): void => {
     while (states.size > maxTurns) {
       const oldest = states.keys().next().value;
-      if (oldest === undefined) return;
+      if (oldest === undefined || oldest === turnId) return;
+
+      trace(oldest, {
+        turnId: oldest,
+        path: "(turn)",
+        final: "block",
+        reason: `Turn "${oldest}" was evicted to stay within maxTurns of ${maxTurns}, before anything called endTurn on it. If it was still in flight, its elements will now fail to verify: raise maxTurns above the number of turns this process holds open at once.`,
+      });
       release(oldest);
     }
   };
 
-  const stateFor = (turnId: string): TurnState => {
+  /** Reads never create a turn. */
+  const stateIfAny = (turnId: string): TurnState | undefined => states.get(turnId);
+
+  /**
+   * Only recording creates one. The earlier version created on every read,
+   * which turned a single eviction into a cascade: checking an evicted turn
+   * inserted an empty state for it, which evicted another live turn, which was
+   * then checked, and so on until nothing verified at all.
+   */
+  const openTurn = (turnId: string): TurnState => {
     let s = states.get(turnId);
     if (!s) {
       s = createTurnState(turnId);
       states.set(turnId, s);
-      evictIfNeeded();
+      evictIfNeeded(turnId);
     }
     return s;
   };
@@ -86,7 +108,7 @@ export function createGuard(config: GuardConfig): Guard {
 
     const started = performance.now();
     const spec = config.registry.get(element.type);
-    const state = stateFor(ctx.turnId);
+    const state = stateIfAny(ctx.turnId) ?? createTurnState(ctx.turnId);
     const before = { ...element.props };
     const results: PolicyResult[] = [];
 
@@ -241,7 +263,9 @@ export function createGuard(config: GuardConfig): Guard {
    */
   function makeTransform(ctx: Ctx): Transformer<GuardEvent, GuardEvent> {
     const tree = createTree();
-    const state = stateFor(ctx.turnId);
+    // A stream that screens state patches needs somewhere to put them, so this
+    // one opens the turn. Checking does not.
+    const state = openTurn(ctx.turnId);
     const dropped = new Set<string>();
     /** Elements held because the data behind their bound props has not arrived. */
     const held: { element: GuardElement; since: number }[] = [];
@@ -395,7 +419,7 @@ export function createGuard(config: GuardConfig): Guard {
 
   const guard: Guard = {
     recordToolResult(result: ToolResult) {
-      stateFor(result.turnId).reserve(result);
+      openTurn(result.turnId).reserve(result);
     },
 
     check: (element, ctx) => checkElement(element, ctx),

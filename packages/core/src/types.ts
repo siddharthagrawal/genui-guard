@@ -238,8 +238,13 @@ export type GuardConfig = {
   staleAfterMs?: number;
   /**
    * How many turns to keep before the oldest is released, by insertion order.
-   * Default 100. A guard held for the life of a server would otherwise retain
-   * every turn's tool results and traces forever.
+   * Default 1000.
+   *
+   * This is a safety net for a host that never calls `endTurn`, not a
+   * scheduler, and it has to exceed the number of turns the process holds open
+   * at once: evicting a turn that is still in flight makes its correct elements
+   * fail to verify. An eviction that happens before `endTurn` is traced for
+   * that reason.
    */
   maxTurns?: number;
   /** Called for every decision, including allow. */

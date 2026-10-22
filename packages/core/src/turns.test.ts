@@ -178,3 +178,68 @@ describe("releasing turns", () => {
     expect(() => createGuard({ registry, maxTurns: 2.5 })).toThrow(/whole number/);
   });
 });
+
+/**
+ * Eviction used to take out turns that were still in flight, and worse, a check
+ * against an evicted turn created an empty state for it, which evicted another
+ * live turn, which was then checked. One eviction became total failure under
+ * nothing more exotic than burst load.
+ */
+describe("eviction under load", () => {
+  it("does not cascade when a turn has already been evicted", () => {
+    const guard = createGuard({ registry, maxTurns: 3 });
+    for (const id of ["r1", "r2", "r3"]) record(guard, id);
+    record(guard, "r4");
+
+    // r1 is gone, which is the documented cost of exceeding the bound.
+    expect(() => guard.check(card(), { turnId: "r1" })).toThrow(/No tool result/);
+
+    // The three turns inside the bound still work, which is the part that broke.
+    for (const id of ["r2", "r3", "r4"]) {
+      expect(guard.check(card(), { turnId: id }).decision).toBe("allow");
+    }
+  });
+
+  it("never evicts the turn being opened", () => {
+    const guard = createGuard({ registry, maxTurns: 1 });
+    record(guard, "a");
+    record(guard, "b");
+
+    expect(guard.check(card(), { turnId: "b" }).decision).toBe("allow");
+  });
+
+  /**
+   * It reaches onTrace and not traces("a"), because the turn is released in the
+   * same breath. That is the contract: a released turn has no traces to read,
+   * so an eviction has to be announced as it happens.
+   */
+  it("announces an eviction nobody asked for through onTrace", () => {
+    const seen: string[] = [];
+    const guard = createGuard({
+      registry,
+      maxTurns: 1,
+      onTrace: (entry) => {
+        if ("path" in entry) seen.push(entry.reason);
+      },
+    });
+    record(guard, "a");
+    record(guard, "b");
+
+    expect(seen.join("\n")).toContain("raise maxTurns");
+    expect(guard.traces("a")).toEqual([]);
+  });
+
+  /** Checking an unknown turn must not quietly take a slot from a live one. */
+  it("does not open a turn on a read", () => {
+    const guard = createGuard({ registry, maxTurns: 2 });
+    record(guard, "a");
+    record(guard, "b");
+
+    for (const unknown of ["x", "y", "z"]) {
+      expect(() => guard.check(card(), { turnId: unknown })).toThrow(/No tool result/);
+    }
+
+    expect(guard.check(card(), { turnId: "a" }).decision).toBe("allow");
+    expect(guard.check(card(), { turnId: "b" }).decision).toBe("allow");
+  });
+});

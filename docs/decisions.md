@@ -66,6 +66,8 @@ I changed the default to blocking for sourced data, and kept repair for cases wh
 
 json-render's own interface makes a version of this argument, since it distinguishes lossy from lossless structural fixes and advises callers to prefer re-prompting over accepting a lossy fix. I am drawing the same line one layer up.
 
+A reader pushed back on this and the objection is fair enough to record. Stripping an unsupported badge can contradict the model's surrounding prose just as rewriting a price would: if the chat bubble promises a refundable flight and the guard quietly removes the refund badge, the page disagrees with the sentence above it. So the distinction is not that subtraction never conflicts with prose. It is that subtraction leaves the user with less information and never with different information. A card missing a badge is incomplete; a card showing a price the model never wrote is confidently wrong, and the user has no way to tell which number to believe. The trace exists so a host that cares about the prose can re-prompt or surface the removal rather than let the mismatch stand silently.
+
 What I lose is the better demonstration, and some usefulness in the common case where the repair would have been fine. Repair remains available per policy for teams who want it, so this is a decision about defaults rather than about capability, which is the right kind of decision to be able to revisit. It is also where the safe defaults principle earns its keep, since a default that fails closed is only defensible if the false block rate stays low enough that nobody notices it failing closed on correct content.
 
 ---

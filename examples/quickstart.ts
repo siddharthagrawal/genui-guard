@@ -37,6 +37,11 @@ export const guard = createGuard({
       a11y: { requireAlt: ["imageAlt"] },
     },
   }),
+  // How old this app lets its fare data get before a card is flagged for it.
+  // Needs `at` on the tool result and `now` on the context, both below: core
+  // reads no clock of its own.
+  staleAfterMs: 5 * 60_000,
+
   policies: [
     p.requireBinding(), // on by default
     p.dropUnsourcedClaims({

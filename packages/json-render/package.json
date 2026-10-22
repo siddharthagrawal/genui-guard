@@ -1,6 +1,6 @@
 {
   "name": "@genui-guard/json-render",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "json-render adapter for genui-guard. Translates specs and JSONL patches to guard events and back.",
   "license": "MIT",
   "type": "module",

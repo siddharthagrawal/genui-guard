@@ -827,3 +827,39 @@ describe("matching a claim to the field that backs it", () => {
     });
   });
 });
+
+/**
+ * Masking reaches a literal and nothing else, which a reviewer worked out from
+ * the README rather than from a failure. A bound sensitive value is resolved on
+ * the client against state the host hydrates, so rewriting the reference would
+ * break the binding and masking the spec would not stop the value reaching the
+ * browser. Saying so beats appearing to have handled it.
+ */
+describe("masking a sensitive field", () => {
+  it("masks a value the model typed", () => {
+    const { element } = guard.check(
+      { id: "s1", type: "TripSummary", props: { loyaltyId: lit("9912348877") }, children: [] },
+      CTX,
+    );
+    expect(element?.props.loyaltyId).toEqual({ kind: "literal", value: "••••••8877" });
+  });
+
+  it("annotates a bound one rather than leaving it unremarked", () => {
+    const { decision, trace, element } = guard.check(
+      {
+        id: "s2",
+        type: "TripSummary",
+        props: { loyaltyId: ref("profile.loyaltyId") },
+        children: [],
+      },
+      CTX,
+    );
+
+    expect(decision).toBe("annotate");
+    // The reference is untouched, because breaking it would be worse.
+    expect(element?.props.loyaltyId).toEqual({ kind: "ref", path: "profile.loyaltyId" });
+
+    const reason = trace.results.find((r) => r.policy === "maskFields")?.reason ?? "";
+    expect(reason).toContain("Redact it where that state is built");
+  });
+});
